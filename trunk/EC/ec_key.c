@@ -66,8 +66,8 @@
 #include <openssl/err.h>
 #include <string.h>
 
-/* 生成新的EC_KEY
- * IN:无
+/* set up EC_KEY
+ * IN: null
  * OUT:EC_KEY*/
 EC_KEY *EC_KEY_new(void)
 	{
@@ -91,17 +91,17 @@ EC_KEY *EC_KEY_new(void)
 	return(ret);
 	}
 
-/* 通过曲线生成新的EC_KEY
+/* set up EC_KEY
  * IN:nid
  * OUT:EC_KEY*/
 EC_KEY *EC_KEY_new_by_curve_name(int nid)
 	{
-	EC_KEY *ret = EC_KEY_new();  //.. 生成EC_KEY
+	EC_KEY *ret = EC_KEY_new();  //..  set up EC_KEY
 	if (ret == NULL)
 		return NULL;
 	ret->group = EC_GROUP_new_by_curve_name(nid);
 
-	// 调用 EC_GROUP_new——by_curve_name 将group信息导入
+	//  use  EC_GROUP_new_by_curve_name(nid) set up group
 
 	if (ret->group == NULL)
 		{
@@ -156,7 +156,7 @@ EC_KEY *EC_KEY_copy(EC_KEY *dest, const EC_KEY *src)
 		ECerr(EC_F_EC_KEY_COPY, ERR_R_PASSED_NULL_PARAMETER);
 		return NULL;
 		}
-	//      各部分 free->new->copy
+	//    try like free->new->copy
 	/* copy the parameters */
 	if (src->group)
 		{
@@ -215,7 +215,7 @@ EC_KEY *EC_KEY_copy(EC_KEY *dest, const EC_KEY *src)
 	}
 /* EC_KEY_dup
  * IN: EC_KEY ec_key
- * DOIT: 生成新KEY  ret= ec_key
+ * DOIT:  copy new   ret= ec_key
  * OUT: *ret */
 EC_KEY *EC_KEY_dup(const EC_KEY *ec_key)
 	{
