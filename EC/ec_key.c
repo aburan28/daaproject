@@ -72,21 +72,22 @@
 EC_KEY *EC_KEY_new(void)
 	{
 	EC_KEY *ret;
-
+   // new sizeof(EC_KEY)
 	ret=(EC_KEY *)OPENSSL_malloc(sizeof(EC_KEY));
 	if (ret == NULL)
 		{
+		// error
 		ECerr(EC_F_EC_KEY_NEW, ERR_R_MALLOC_FAILURE);
 		return(NULL);
 		}
 
-	ret->version = 1;
+	ret->version = 1;      //TODO  use?
 	ret->group   = NULL;
 	ret->pub_key = NULL;
 	ret->priv_key= NULL;
 	ret->enc_flag= 0;
 	ret->conv_form = POINT_CONVERSION_UNCOMPRESSED; // =4
-	ret->references= 1;
+	ret->references= 1;                 //?
 	ret->method_data = NULL;      //  method_data = null
 	return(ret);
 	}
@@ -129,16 +130,16 @@ void EC_KEY_free(EC_KEY *r) // EC_KEY free
 		abort();
 		}
 #endif
-
+  // free
 	if (r->group    != NULL)
 		EC_GROUP_free(r->group);
 	if (r->pub_key  != NULL)
 		EC_POINT_free(r->pub_key);
 	if (r->priv_key != NULL)
 		BN_clear_free(r->priv_key);
-
+  // free method_data
 	EC_EX_DATA_free_all_data(&r->method_data);
-
+  // clean EC_KEY
 	OPENSSL_cleanse((void *)r, sizeof(EC_KEY));
 
 	OPENSSL_free(r);
@@ -164,9 +165,11 @@ EC_KEY *EC_KEY_copy(EC_KEY *dest, const EC_KEY *src)
 		/* clear the old group */
 		if (dest->group)
 			EC_GROUP_free(dest->group);
+		// new group
 		dest->group = EC_GROUP_new(meth);
 		if (dest->group == NULL)
 			return NULL;
+		// group copy
 		if (!EC_GROUP_copy(dest->group, src->group))
 			return NULL;
 		}
@@ -181,7 +184,8 @@ EC_KEY *EC_KEY_copy(EC_KEY *dest, const EC_KEY *src)
 		if (!EC_POINT_copy(dest->pub_key, src->pub_key))
 			return NULL;
 		}
-	/* copy the private key */
+	/* copy the private key
+	 * BN copy */
 	if (src->priv_key)
 		{
 		if (dest->priv_key == NULL)
@@ -219,9 +223,11 @@ EC_KEY *EC_KEY_copy(EC_KEY *dest, const EC_KEY *src)
  * OUT: *ret */
 EC_KEY *EC_KEY_dup(const EC_KEY *ec_key)
 	{
+	//  new key
 	EC_KEY *ret = EC_KEY_new();
 	if (ret == NULL)
 		return NULL;
+	// copy
 	if (EC_KEY_copy(ret, ec_key) == NULL)
 		{
 		EC_KEY_free(ret);
@@ -229,10 +235,11 @@ EC_KEY *EC_KEY_dup(const EC_KEY *ec_key)
 		}
 	return ret;
 	}
-// TODO
+// TODO ((i > 1) ? 1 : 0)?
 int EC_KEY_up_ref(EC_KEY *r)
 	{
-	int i = CRYPTO_add(&r->references, 1, CRYPTO_LOCK_EC);
+	int i = CRYPTO_add(&r->references, 1, CRYPTO_LOCK_EC); // CRYPTO_LOCK_EC) ==33
+	     // in crypto.h
 #ifdef REF_PRINT
 	REF_PRINT("EC_KEY",r);
 #endif
@@ -246,7 +253,8 @@ int EC_KEY_up_ref(EC_KEY *r)
 	return ((i > 1) ? 1 : 0);
 	}
 /* EC_KEY_generate_key
- * IN: EC_KEY eckey (eckey->group !=NULL)
+ * IN: EC_KEY eckey (eckey and eckey->group !=NULL)
+ * built a key base on the group
  * OUT: if succeed return ok = 1
  * */
 int EC_KEY_generate_key(EC_KEY *eckey)
@@ -312,7 +320,8 @@ err:
 	return(ok);
 	}
 //TODO
-/* OUT: k=1 succeed
+/* check_key that is built succeed
+ * OUT: k=1 succeed
  * */
 int EC_KEY_check_key(const EC_KEY *eckey)
 	{
@@ -450,15 +459,15 @@ void EC_KEY_set_conv_form(EC_KEY *key, point_conversion_form_t cform)
 		EC_GROUP_set_point_conversion_form(key->group, cform);
 	}
 /*get method_data
- * TODO*/
+ **/
 void *EC_KEY_get_key_method_data(EC_KEY *key,
 	void *(*dup_func)(void *), void (*free_func)(void *), void (*clear_free_func)(void *))
 	{
 	return EC_EX_DATA_get_data(key->method_data, dup_func, free_func, clear_free_func);
 	}
-/*Set method_data
- * ec_lib.c
- * TODO*/
+/*Set key method_data
+ * TODO
+ * ec_lib.c*/
 void EC_KEY_insert_key_method_data(EC_KEY *key, void *data,
 	void *(*dup_func)(void *), void (*free_func)(void *), void (*clear_free_func)(void *))
 	{
@@ -469,13 +478,13 @@ void EC_KEY_insert_key_method_data(EC_KEY *key, void *data,
 		EC_EX_DATA_set_data(&key->method_data, data, dup_func, free_func, clear_free_func);
 	CRYPTO_w_unlock(CRYPTO_LOCK_EC);
 	}
-/* group->asn1_flag = flag;*/
+/*  key->group->asn1_flag = flag;*/
 void EC_KEY_set_asn1_flag(EC_KEY *key, int flag)
 	{
 	if (key->group != NULL)
 		EC_GROUP_set_asn1_flag(key->group, flag);
 	}
-/*TODO*/
+/*use ec_group_precompute_mult*/
 int EC_KEY_precompute_mult(EC_KEY *key, BN_CTX *ctx)
 	{
 	if (key->group == NULL)
