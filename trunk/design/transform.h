@@ -30,22 +30,25 @@ bi_ptr bin_2_bip( const BYTE length, const UINT32 *buffer)
 {
 	bi_ptr ret_bi = bi_new_ptr();
 
-	if( ret_bi == NULL) return NULL;
-	if( BN_bin2bn( buffer, length, ret_bi) == NULL) {
+	if ( ret_bi == NULL)
+		    return NULL;
+
+	if ( BN_bin2bn( buffer, length, ret_bi) == NULL)
+	{
 			bi_free( ret_bi);
 			return NULL;
-		}
-	bin_2_bip = ret_bi;
+	}
+	return ret_bi;
 }
 
 /* return a BYTE* and UINT32 from bi_ptr*/
-BYTE *bip_2_bin( UINT32 *length, const bi_ptr BP)
+BYTE *bip_2_bin( UINT32 *length, const bi_ptr bp)
 {
 	BYTE * ret;
-	*length = BN_num_bytes( BP);
+	*length = BN_num_bytes( bp );
 	ret = (BYTE *)bi_alloc( *length * 2);
 	if( ret == NULL) return NULL;
-	BN_bn2bin( i, ret);
+	BN_bn2bin( bp, ret);
 	return  ret;
 }
 
