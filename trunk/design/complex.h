@@ -29,7 +29,7 @@ typedef struct complex_st{
 
 
 // res = x + y
-COMPLEX *Add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUN *m )
+COMPLEX *Add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
 {
 	BN_mod_add( &r->x, &a->x, &b->x, m, Context );
 	BN_mod_add( &r->y, &a->y, &b->y, m, Context );
@@ -85,14 +85,14 @@ COMPLEX *Mul( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM * m )
 	BN_mod_sub( &r->y, &r->y, &tmp1, m ,Context);
 	BN_mod_sub( &r->y, &r->y, &tmp2, m, Context);
 
-	BN_mod_sub( &r->x, &temp1, &temp2, m, Context);
+	BN_mod_sub( &r->x, &tmp1, &tmp2, m, Context);
 
     return r;
 }
 
 // if x = a + bi
 //    res = a - bi
-COMPLEX *Conj( BIGNUM *r, COMPLEX *a, BIGNUM * m )
+COMPLEX *Conj( COMPLEX *r, COMPLEX *a, BIGNUM * m )
 {
 
 	Copy( r, a );
@@ -117,7 +117,7 @@ COMPLEX *Inver( COMPLEX *r, COMPLEX *a, BIGNUM * m )
 	if ( ret )
 		return NULL;
 
-	ret = BN_mod_add( &sqr1, &sqr2, m, Context);
+	ret = BN_mod_add( &sqr1, &sqr1, &sqr2, m, Context);
 	if ( ret )
 		return NULL;
 
@@ -127,11 +127,11 @@ COMPLEX *Inver( COMPLEX *r, COMPLEX *a, BIGNUM * m )
 
 	Conj( r, a, m );
 
-	ret = BN_mod_mul( r->x, &r->x, &sqr2, m, Context );
+	ret = BN_mod_mul( &r->x, &r->x, &sqr2, m, Context );
 	if ( ret )
 		return NULL;
 
-	ret = BN_mod_mul( r->y, &r->y, &sqr2, m, Context );
+	ret = BN_mod_mul( &r->y, &r->y, &sqr2, m, Context );
 	if ( ret )
 		return NULL;
 
