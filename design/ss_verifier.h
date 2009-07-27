@@ -12,8 +12,10 @@ int TSS_DAA_JOIN_verifier_init(BYTE **  VerifierBasename,
                                BYTE **  NonceVerifier,
                                UINT32 * NonceVerifierLength);
 
-int TSS_DAA_JOIN_verifier_verify(BYTE *   DaaSignature,
-                                 UINT32   DaaSignatureLength,
+int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
+							     TSS_DAA_ISSUER_PK  *   IssuerPK,
+							     BYTE   * Msg,
+							     UINT32   MsgLength,
                                  UINT32 * IsCorrect);
 
 #endif

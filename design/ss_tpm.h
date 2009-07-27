@@ -9,12 +9,16 @@
 
 int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
                                     UINT32 EncryptedNonceOfIssuerLength,
-                           TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession);
+                                    TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
+                                    TSS_DAA_ISSUER_PK        * IssuerPK,
+                                    TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession); //TODO change to BYTE *
 
 int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
-                                 UINT32 EncryptedCredLength,
-                                 BYTE * EncryptedBytes,
-                                 UINT32 EncryptedBytesLength);
+                                UINT32 EncryptedCredLength,
+                                BYTE **  Credential,
+                                UINT32 * CredentialLength,
+                                BYTE **  CapitalE,
+                                UINT32 * CapitalELength);
 
 int TSS_DAA_SIGN_tpm_init(TSS_DAA_CREDENTIAL * Credential,
                           BYTE * VerifierBaseName,
@@ -29,5 +33,7 @@ int TSS_DAA_SIGN_tpm_sing(BYTE *  ChPrime,
                           BYTE **  Noncetpm,
                           UINT32 * Noncetpmlength,
                           BYTE **  Ch,
-                          UINT32 * Chlength);
+                          UINT32 * Chlength,
+                          BYTE **  S,
+						  UINT32 * SLength);
 #endif
