@@ -10,9 +10,12 @@
 #ifndef BYTE
 #define BYTE unsigned char
 #endif
+
 #ifndef UINT32
 #define UINT32 unsigned long
 #endif
+
+#include <openssl/ec.h>
 
 typedef EC_POINT ECC_POINT;
 
