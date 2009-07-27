@@ -121,8 +121,7 @@ COMPLEX *Inver( COMPLEX *r, COMPLEX *a, BIGNUM * m )
 	if ( ret )
 		return NULL;
 
-	ret = BN_mod_inverse( &sqr2, &sqr1, m, Context);
-	if ( ret )
+	if ( !BN_mod_inverse( &sqr2, &sqr1, m, Context) )
 		return NULL;
 
 	Conj( r, a, m );
