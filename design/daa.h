@@ -16,6 +16,8 @@
 #endif
 
 #include <openssl/ec.h>
+//#include <openssl/ec_lcl.h>
+#include "ec_lcl.h"
 #include "complex.h"
 
 typedef EC_POINT ECC_POINT;
