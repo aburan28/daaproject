@@ -21,9 +21,9 @@ BN_CTX *Context;
 // complex number a + bi
 typedef struct complex_st{
 
-	BIGNUM x,
+	BIGNUM x;
 
-	BIGNUM y
+	BIGNUM y;
 
 }COMPLEX;
 

@@ -16,15 +16,10 @@
 #endif
 
 #include <openssl/ec.h>
+#include "complex.h"
 
 typedef EC_POINT ECC_POINT;
 
-// bi_ptr2  mean  a+bi
-typedef struct tdbi_ptr2
-{
-	bi_ptr a;
-	bi_ptr b;
-}bi_ptr2;
 
 typedef struct tdECCParmeter
 {
@@ -125,11 +120,11 @@ typedef struct tdTPMSession
 
 typedef struct  tdHostJoinSession
 {
-    bi_ptr2 Roa;
+	COMPLEX *Roa;
 
-    bi_ptr2 Rob;
+	COMPLEX *Rob;
 
-    bi_ptr2 Roc;
+	COMPLEX *Roc;
 
 }TSS_DAA_HOST_JOIN_SESSION;
 
