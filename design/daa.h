@@ -22,6 +22,9 @@
 
 typedef EC_POINT ECC_POINT;
 
+//TODO  defien length
+#define NONCE_LENGTH 20
+// define length end
 
 typedef struct tdECCParmeter
 {
