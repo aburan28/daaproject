@@ -16,9 +16,10 @@ int TSS_DAA_JOIN_issuer_setup(
 int TSS_DAA_JOIN_issuer_init(
 							BYTE * 					  	  PlatformEndorsemenPubKey,
                             UINT32 					  	  PlatformEndorsemenPubkeyLength,
-                            bi_ptr 						  EncryptedNonceOfIssuer,
                             TSS_DAA_ISSUER_PK * 		  IssuerPK,
-                            TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession);
+                            TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession,
+                            BYTE   ** 	   				  EncryptedNonceOfIssuer,
+                            UINT32 *					  EncryptedNonceOfIssuerLength);
 
 
 int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,

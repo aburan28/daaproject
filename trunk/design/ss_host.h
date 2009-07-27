@@ -22,6 +22,5 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,
                            UINT32 DPrimeLEgnth,
                            BYTE * NonceVerifier,
                            UINT32 NonceVerifierLength,
-                           BYTE ** DaaSignnature,
-                           UINT32 *DaaSignnatureLength);
+                           TSS_DAA_SIGNNATURE *   DaaSignature);
 #endif
