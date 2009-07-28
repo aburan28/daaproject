@@ -11,10 +11,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <openssl/bn.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
 //typedef struct bignum_st BIGNUM; //define in ossl_type.h
+#define  WINDOW_SIZE 5
 
 BN_CTX *Context;
 
@@ -27,6 +29,12 @@ typedef struct complex_st{
 
 }COMPLEX;
 
+int complex_iszero(COMPLEX *a)
+{
+    if ( BN_is_zero(&a->x) == 1 && BN_is_zero(&a->y) == 1 )
+    	return 1;
+    return 0;
+}
 
 // res = x + y
 COMPLEX *Add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
@@ -148,10 +156,115 @@ COMPLEX *Div( COMPLEX *r, COMPLEX *a, COMPLEX * b, BIGNUM * m )
 	return r;
 }
 
-// res = x ^exp % mod
-COMPLEX *Pow( COMPLEX *r, COMPLEX *a, COMPLEX * b, BIGNUM * m )
+int Window( BIGNUM *a, int i, int *nbs, int *nzs, int window_size)
+{
+	int j ,r ,w;
+	w = window_size;
+
+	*nbs = 1;
+	*nzs = 0;
+
+	if (!BN_is_bit_set(a, i))
+		return 0;
+
+	if ( (i - w + 1) < 0 )
+		w = i + 1;
+
+	r = 1;
+	for ( j = 1; j > i-w; j-- )
+	{
+		( *nbs )++;
+		r *= 2;
+
+		if ( BN_is_bit_set(a, j) )
+			r += 1;
+
+		if ( (r % 4) == 0 )
+		{
+			r /= 4;
+			*nbs -= 2;
+			*nzs = 2;
+			break;
+		}
+	}
+	if ( (r % 2) == 0 )
+	{
+		r /= 2;
+		*nzs = 1;
+		( *nbs )--;
+	}
+	return r;
+
+}
+
+/*int BN_is_bit_set(const BIGNUM *a, int n);测试是否已经设置，1表示已设置, returns 1 if the bit is set(1), 0 otherwise*/
+
+/* res = x ^exp % mod
+ * sliding window for speeding up
+ *
+ */
+COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 {
 	//TODO slid window
+	int i, j, nb, n, nbw, nzs, ret;
+	COMPLEX u, u2, t[16];
+
+	if ( r == NULL )
+		return r;
+
+	if (complex_iszero(a))
+	{
+		BN_set_word(&r->x, (BN_ULONG)0);
+		BN_set_word(&r->y, (BN_ULONG)0);
+		return r;
+	}
+
+	if (BN_is_zero(b)) /* a = 1 */
+	{
+		BN_set_word(&r->x, (BN_ULONG)1);
+		BN_set_word(&r->y, (BN_ULONG)0);
+		return r;
+	}
+
+	/* r = a */
+	ret = Copy(r, a);
+	if (ret != 0)
+		return NULL;
+
+	if (BN_is_word(b, 1))
+	{
+		Copy( r, a);
+		return r;
+	}
+
+	Mul( &u2, r, r, m);
+	Copy(&t[0], r);
+	for ( i = 1; i < 16; i++)
+		Mul( &t[i], &t[i-1], &u2, m);
+
+	nb = BN_num_bits(b);
+	if (nb > 1)
+	{
+		for ( i = nb -2; i >= 0; )
+		{
+			n = Window( b, i, &nbw, &nzs, WINDOW_SIZE);
+			for ( j = 0; j < nbw; j++ )
+				Mul( r, r, r , m);
+
+			if ( n > 0 )
+				Mul( r, r, &t[n/2], m);
+
+			i -= nbw;
+			if (nzs)
+			{
+				for( j = 0; j< nzs; j++)
+				   Mul(r, r, r, m);
+
+				i -= nzs;
+			}
+		}
+		return r;
+	}
 }
 
 #ifdef  __cplusplus
