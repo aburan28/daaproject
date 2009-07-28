@@ -63,8 +63,17 @@ COMPLEX *Negate( COMPLEX *r, COMPLEX *a, BIGNUM *m )
 {
 	Copy( r, a );
 
-	BN_set_negative( &r->x, 1);
-	BN_set_negative( &r->y, 1);
+	/* r->x is neg*/
+	if (BN_is_negative(&r-x))
+		BN_set_negative( &r->x, 0);
+	else
+		BN_set_negative( &r->x, 1);
+
+	/* r->y is neg*/
+	if (BN_is_negative(&r-y))
+		BN_set_negative( &r->y, 0);
+	else
+		BN_set_negative( &r->y, 0);
 
 	return r;
 
@@ -206,7 +215,7 @@ int Window( BIGNUM *a, int i, int *nbs, int *nzs, int window_size)
  */
 COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 {
-	//TODO slid window
+	/* slid window */
 	int i, j, nb, n, nbw, nzs, ret;
 	COMPLEX  u, u2, t[16];
 
@@ -215,31 +224,31 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 
 	if (complex_iszero(a))
 	{
-		BN_set_word(&r->x, (BN_ULONG)0);
-		BN_set_word(&r->y, (BN_ULONG)0);
+		BN_set_word( &r->x, (BN_ULONG)0 );
+		BN_set_word( &r->y, (BN_ULONG)0 );
 		return r;
 	}
 
-	if (BN_is_zero(b)) /* a^b = 1 */
+	if (BN_is_zero( b )) /* a^b = 1 */
 	{
-		BN_set_word(&r->x, (BN_ULONG)1);
-		BN_set_word(&r->y, (BN_ULONG)0);
+		BN_set_word( &r->x, (BN_ULONG)1 );
+		BN_set_word( &r->y, (BN_ULONG)0 );
 		return r;
 	}
 
 	/* r = a */
-	ret = Copy(&u, a);
+	ret = Copy( &u, a );
 	if (ret != 0)
 		return NULL;
 
-	if (BN_is_word(b, 1))
+	if (BN_is_word( b, 1 ))
 	{
 		Copy( r, a);
 		return r;
 	}
 
 	Mul( &u2, &u, &u, m);
-	Copy(&t[0], &u);
+	Copy( &t[0], &u );
 	for ( i = 1; i < 16; i++)
 		Mul( &t[i], &t[i-1], &u2, m);
 

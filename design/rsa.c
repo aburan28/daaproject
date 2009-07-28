@@ -25,8 +25,12 @@
 #include "trousers/tss.h"
 #include "trousers/trousers.h"
 #include "trousers_types.h"
-#include "spi_utils.h"
+//#include "spi_utils.h"
 #include "tsplog.h"
+
+#ifndef MIN
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
 
 #ifdef TSS_DEBUG
 #define DEBUG_print_openssl_errors() \
