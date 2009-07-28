@@ -207,7 +207,7 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 {
 	//TODO slid window
 	int i, j, nb, n, nbw, nzs, ret;
-	COMPLEX u, u2, t[16];
+	COMPLEX  u2, t[16];
 
 	if ( r == NULL )
 		return r;
@@ -263,8 +263,8 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 				i -= nzs;
 			}
 		}
-		return r;
 	}
+	return r;
 }
 
 #ifdef  __cplusplus
