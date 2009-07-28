@@ -51,8 +51,8 @@ int main()
     P->Y = (*bi_test2);
     if (ecp_2_hex(P,&X,&Y,&XLength,&YLength)==0) printf("ERROR! in ecp_2_hex \n");
 
-    printf("\n X is %d that's %s",XLength,X);
-    printf("\n Y is %d that's %s\n",YLength,Y);
+    printf("\n X is %ld that's %s", XLength, X);
+    printf("\n Y is %ld that's %s\n", YLength, Y);
 
     if (hex_2_ecp(X,Y,&P,group) == 0) printf("\n Error in Hex to ecp\n");
 
