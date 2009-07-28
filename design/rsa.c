@@ -21,6 +21,8 @@
 #include <openssl/err.h>
 #include <openssl/sha.h>
 #include <openssl/rsa.h>
+#include "daa.h"
+
 
 #include "trousers/tss.h"
 #include "trousers/trousers.h"
@@ -67,7 +69,7 @@ Trspi_RSA_Encrypt(unsigned char *dataToEncrypt, /* in */
 	int encodedDataLen;
 
 	if (rsa == NULL) {
-		rv = TSPERR(TSS_E_OUTOFMEMORY);
+		//rv = TSPERR(TSS_E_OUTOFMEMORY);
 		goto err;
 	}
 
@@ -83,7 +85,7 @@ Trspi_RSA_Encrypt(unsigned char *dataToEncrypt, /* in */
 
 	/* padding constraint for PKCS#1 OAEP padding */
 	if ((int)dataToEncryptLen >= (RSA_size(rsa) - ((2 * SHA_DIGEST_LENGTH) + 1))) {
-		rv = TSPERR(TSS_E_INTERNAL_ERROR);
+	//	rv = TSPERR(TSS_E_INTERNAL_ERROR);
 		goto err;
 	}
 
@@ -107,7 +109,7 @@ Trspi_RSA_Encrypt(unsigned char *dataToEncrypt, /* in */
 
 	/* RSA_public_encrypt returns the size of the encrypted data */
 	*encryptedDataLen = rv;
-	rv = TSS_SUCCESS;
+	//rv = TSS_SUCCESS;
 	goto out;
 
 err:
@@ -118,7 +120,7 @@ out:
         return rv;
 }
 
-TSS_RESULT
+int
 Trspi_Verify(UINT32 HashType, BYTE *pHash, UINT32 iHashLength,
 	     unsigned char *pModulus, int iKeyLength,
 	     BYTE *pSignature, UINT32 sig_len)
@@ -201,7 +203,7 @@ Trspi_RSA_Public_Encrypt(unsigned char *in, unsigned int inlen,
 	RSA *rsa = RSA_new();
 
 	if (rsa == NULL) {
-		rv = TSPERR(TSS_E_OUTOFMEMORY);
+		//rv = TSPERR(TSS_E_OUTOFMEMORY);
 		goto err;
 	}
 
