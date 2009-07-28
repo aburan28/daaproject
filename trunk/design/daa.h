@@ -22,8 +22,10 @@
 
 typedef EC_POINT ECC_POINT;
 
-//TODO  defien length
+
+//TODO  define const length
 #define NONCE_LENGTH 20
+
 // define length end
 
 typedef struct tdECCParmeter
@@ -154,4 +156,12 @@ typedef struct tdSignature
 	bi_ptr nt;
 
 }TSS_DAA_SIGNNATURE;
+
+int Trspi_RSA_Encrypt(unsigned char *dataToEncrypt, /* in */
+		unsigned int dataToEncryptLen,  /* in */
+		unsigned char *encryptedData,   /* out */
+		unsigned int *encryptedDataLen, /* out */
+		unsigned char *publicKey,
+		unsigned int keysize);
+
 #endif

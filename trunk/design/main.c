@@ -1,4 +1,3 @@
-
 #include "bi.h"
 #include "bi_openssl.h"
 #include "daa.h"
