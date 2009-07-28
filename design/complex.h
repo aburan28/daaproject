@@ -46,13 +46,14 @@ COMPLEX *Add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
 
 }
 
+/* a = b */
 int Copy ( COMPLEX *a, COMPLEX *b )
 {
 	if ( a == b)
 		return 0;
 
-	BN_copy( &a->x, &a->x);
-	BN_copy( &b->y, &a->y);
+	BN_copy( &a->x, &b->x);
+	BN_copy( &a->y, &b->y);
 
 	return 0;
 }
@@ -171,7 +172,7 @@ int Window( BIGNUM *a, int i, int *nbs, int *nzs, int window_size)
 		w = i + 1;
 
 	r = 1;
-	for ( j = 1; j > i-w; j-- )
+	for ( j = i - 1; j > i-w; j-- )
 	{
 		( *nbs )++;
 		r *= 2;
@@ -207,7 +208,7 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 {
 	//TODO slid window
 	int i, j, nb, n, nbw, nzs, ret;
-	COMPLEX  u2, t[16];
+	COMPLEX  u, u2, t[16];
 
 	if ( r == NULL )
 		return r;
@@ -219,7 +220,7 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 		return r;
 	}
 
-	if (BN_is_zero(b)) /* a = 1 */
+	if (BN_is_zero(b)) /* a^b = 1 */
 	{
 		BN_set_word(&r->x, (BN_ULONG)1);
 		BN_set_word(&r->y, (BN_ULONG)0);
@@ -227,7 +228,7 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 	}
 
 	/* r = a */
-	ret = Copy(r, a);
+	ret = Copy(&u, a);
 	if (ret != 0)
 		return NULL;
 
@@ -237,8 +238,8 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 		return r;
 	}
 
-	Mul( &u2, r, r, m);
-	Copy(&t[0], r);
+	Mul( &u2, &u, &u, m);
+	Copy(&t[0], &u);
 	for ( i = 1; i < 16; i++)
 		Mul( &t[i], &t[i-1], &u2, m);
 
@@ -249,21 +250,22 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 		{
 			n = Window( b, i, &nbw, &nzs, WINDOW_SIZE);
 			for ( j = 0; j < nbw; j++ )
-				Mul( r, r, r , m);
+				Mul( &u, &u, &u , m);
 
 			if ( n > 0 )
-				Mul( r, r, &t[n/2], m);
+				Mul( &u, &u, &t[n/2], m);
 
 			i -= nbw;
 			if (nzs)
 			{
 				for( j = 0; j< nzs; j++)
-				   Mul(r, r, r, m);
+				   Mul(&u, &u, &u, m);
 
 				i -= nzs;
 			}
 		}
 	}
+	ret = Copy(r, &u);
 	return r;
 }
 
