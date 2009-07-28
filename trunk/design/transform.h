@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 /* return a bi_ptr from UNIT32,BYTE*  */
-bi_ptr bin_2_bip( const BYTE length, const UINT32 *buffer)
+bi_ptr bin_2_bip( const BYTE *buffer, const UINT32 length)
 {
 	bi_ptr ret_bi = bi_new_ptr();
 
@@ -47,41 +47,35 @@ bi_ptr bin_2_bip( const BYTE length, const UINT32 *buffer)
 /* return a BYTE* and UINT32 from bi_ptr*/
 BYTE *bip_2_bin( UINT32 *length, const bi_ptr bp)
 {
-	BYTE *ret;
+	BYTE *ret ;
 	*length = BN_num_bytes( bp);
-
 	ret = (BYTE *)bi_alloc( *length * 2);
-	if( ret == NULL)
-		return NULL;
+	if( ret == NULL) {
+		return NULL; }
 
 	BN_bn2bin( bp, ret);
 	return  ret;
 }
-/*
- * bi_ptr bi_set_as_hex( bi_ptr i, const char *value);
- *
- * char *bi_2_hex_char(const bi_ptr i);
- *
- */
-// change ECC_POINT's X,Y to hexadecimal string, and we follow length
+
+/* change ECC_POINT's X,Y to hexadecimal string, and we follow length */
 int ecp_2_hex(ECC_POINT *EccPoint, BYTE **X, BYTE **Y, UINT32 *XLength, UINT32 *YLength)
 {
-	*X = bi_2_hex_char(&(EccPoint->X));
+
+	*X = (BYTE *)bi_2_hex_char(&(EccPoint->X));
 	if (*X==NULL) return 0;
 
-	*Y = bi_2_hex_char(&(EccPoint->Y));
+	*Y = (BYTE *)bi_2_hex_char(&(EccPoint->Y));
 	if (*Y==NULL) return 0;
 
-	if ((!XLength)&&(!YLength))
-	{
-		XLength = strlen(*X);
-		YLength = strlen(*Y);
-	}
+	if ((!XLength)&&(!YLength)) return 0;
+		*XLength = strlen(*X);
+		*YLength = strlen(*Y);
+
 	return 1;
 }
-//
-// change hexadecimal string X , Y to ECC_POINT's X and Y
-int ecp_2_hex(BYTE *X, BYTE *Y, ECC_POINT **EccPoint, EC_GROUP *group)
+
+/* change hexadecimal string X , Y to ECC_POINT's X and Y */
+int hex_2_ecp(BYTE *X, BYTE *Y, ECC_POINT **EccPoint, EC_GROUP *group)
 {
 	if (group==NULL) group = EC_GROUP_new(EC_GFp_mont_method());
 	if (group==NULL) return 0;
@@ -90,18 +84,15 @@ int ecp_2_hex(BYTE *X, BYTE *Y, ECC_POINT **EccPoint, EC_GROUP *group)
 
 	*EccPoint = EC_POINT_new(group);
 
-	BIGNUM temp;
-	bi_ptr bip;
-	bip = &temp;
+
+	bi_ptr bip = bi_new_ptr();
 	BN_hex2bn( &bip, X);
-	(*Ecc_Point)->X = temp;
+	(*EccPoint)->X = *bip;
 
-	BN_clear_free(bip);
-
+	bip = bi_new_ptr();
 	BN_hex2bn( &bip, Y);
-	(*Ecc_Point)->Y = temp;
+	(*EccPoint)->Y = *bip;
 
-	BN_clear_free(bip);
     return 1;
 }
 
