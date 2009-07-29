@@ -32,8 +32,8 @@ void extract(EC_POINT *A, BIGNUM *x, BIGNUM *y)
 {
     //x=(A.get_point())->X;
     //y=(A.get_point())->Y;
-	BN_copy(x, a->x);
-	BN_copy(y, a->y);
+	BN_copy(x, A->x);
+	BN_copy(y, A->y);
 }
 
 //
@@ -78,17 +78,18 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL pr
     	/*store values in store[]  */
     	BN_copy( &store[ptr++], &x );
     	BN_copy( &store[ptr++], &y );
-    	BN_copy( &store[ptr++], lam );
+    	BN_copy( &store[ptr++], &lam );
 
     	if ( !type )
     		return ;
 
-    	BN_mod_sub( &m, &Qx, &x, ec_group->field, Context);
-    	BN_mod_mul( &m, &m, &lam, ec_group->field, Context);
+    	BN_mod_sub( &m, &Qx, &x, &ec_group->field, Context);
+    	BN_mod_mul( &m, &m, &lam, &ec_group->field, Context);
 
     	//TODO define function sub_big
     	//Sub_Big( &u, &Qy, &y, ec_group->field, Context);
         //SubBig( &u, &u, &m, ec_group->field, Context);
+
     }
     else
     {
@@ -96,15 +97,15 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL pr
     	BN_copy(&y, &store[ptr++]);
     	BN_copy(&lam, &store[ptr++]);
 
-    	BN_mod_sub( &m, &Qx, &x, ec_group->field, Context);
-    	BN_mod_mul( &m, &m, &lam, ec_group->field, Context);
+    	BN_mod_sub( &m, &Qx, &x, &ec_group->field, Context);
+    	BN_mod_mul( &m, &m, &lam, &ec_group->field, Context);
 
     	//TODO define function sub_big
     	//Sub_Big( &u, &Qy, &y, ec_group->field, Context);
         //SubBig( &u, &u, &m, ec_group->field, Context);
 
     }
-    Mul( num, num, &u, ec_group->field);
+    Mul( num, num, &u, &ec_group->field);
     /*else
     { // extract precalculated values from the store.... - nx is a peek ahead
         x=store[ptr++]; y=store[ptr++]; lam=store[ptr++]; nx=store[ptr];
@@ -179,10 +180,13 @@ BOOL fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL pre
 	int i, ptr = 0, ret;
 	BIGNUM p;
 	EC_POINT A;
+	COMPLEX con_res;
 
-	// TODO precompute using AFFINE
-	// TODO complex set function
+	// TODO  precompute using AFFINE
+	// TODO  complex set function
 	//SetWord( res, 1);
+	BN_set_word( &res->x, 1);
+	BN_set_word( &res->y, 0);
 
 	ret = EC_POINT_copy(&A, P);
 	for ( i = 0; i< 42; i++ )
@@ -203,15 +207,21 @@ BOOL fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL pre
 		return 0;
 	if ( !precomp)
 	{
-		if (!EC_POINT_is_at_infinity(ec_group, A))
+		if (!EC_POINT_is_at_infinity(&ec_group, A))
 			return 0;
 	}
 
-	ret = BN_copy( &p, ec_group->field );
+	ret = BN_copy( &p, &ec_group->field );
 
 	BN_add_word( &p, &p, 1);
-	BN_div(&p, &p, q);
-	Pow( res, res, p+1)
+	BN_div(&p, NULL, &p, q, Context);
+	Pow( res, res, &p, &ec_group->field);
+
+	Conj( &con_res, res, &ec_group->field);
+	Div( res, &con_res, res, &ec_group->field);
+	if(complex_iszero ( res ))
+		return 0;
+	return 1;
 
 }
 
@@ -219,17 +229,31 @@ BOOL fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL pre
 // ecap(.) function
 //
 
-BOOL ecap(ECn& P,ECn& Q,Big& order,BOOL precomp,ZZn *store,ZZn2& res)
+int  ecap(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, COMPLEX *res)
 {
-    ZZn  Qx;
-    ZZn2 Qy;
-    Big xx,yy;
+    BIGNUM  Qx;
+    COMPLEX Qy;
+    BIGNUM xx,yy;
 
-    Q.get(xx,yy);
+    EC_POINT_get_affine_coordinates_GFp(&ec_group, Q, &xx, &yy, Context);
+    /*
     Qx=-xx;
     Qy.set((Big)0,yy);
+    */
+	if ( BN_is_negative(&xx) )
+		BN_set_negative( &xx, 0 );
+	else
+		BN_set_negative( &xx, 1 );
 
-    return fast_tate_pairing(P,Qx,Qy,order,precomp,store,res);
+	BN_copy(Qx, &xx);
+
+	BN_set_word(&xx, 0);
+	// TODO set funtion
+	//Set(&Qy, &xx, &yy);
+	BN_copy(&Qy->x, &xx);
+	BN_copy(&Qy->y, &yy);
+
+    return fast_tate_pairing(P, Qx, Qy, order, precomp, store, res);
 
 }
 
