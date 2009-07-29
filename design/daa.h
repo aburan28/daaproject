@@ -19,6 +19,7 @@
 //#include <openssl/ec_lcl.h>
 #include "ec_lcl.h"
 #include "complex.h"
+#include "bi_openssl.h"
 
 typedef EC_POINT ECC_POINT;
 
@@ -113,7 +114,7 @@ typedef struct tdCredential
 
 	ECC_POINT CapitalC;
 
-}TSS_DAA_CREDENTIAL;
+}TSS_DAA_CREDENTIAL2;
 
 // TPM
 
@@ -157,11 +158,11 @@ typedef struct tdSignature
 
 }TSS_DAA_SIGNNATURE;
 
-int Trspi_RSA_Encrypt(unsigned char *dataToEncrypt, /* in */
-		unsigned int dataToEncryptLen,  /* in */
-		unsigned char *encryptedData,   /* out */
-		unsigned int *encryptedDataLen, /* out */
-		unsigned char *publicKey,
-		unsigned int keysize);
+//int Trspi_RSA_Encrypt(unsigned char *dataToEncrypt, /* in */
+	//	unsigned int dataToEncryptLen,  /* in */
+		//unsigned char *encryptedData,   /* out */
+		//unsigned int *encryptedDataLen, /* out */
+		//unsigned char *publicKey,
+		//unsigned int keysize);
 
 #endif

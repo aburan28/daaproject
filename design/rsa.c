@@ -120,7 +120,7 @@ out:
         return rv;
 }
 
-int
+UINT32
 Trspi_Verify(UINT32 HashType, BYTE *pHash, UINT32 iHashLength,
 	     unsigned char *pModulus, int iKeyLength,
 	     BYTE *pSignature, UINT32 sig_len)

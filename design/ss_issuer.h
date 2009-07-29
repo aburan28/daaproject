@@ -23,7 +23,7 @@ int TSS_DAA_JOIN_issuer_init(
 
 
 int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
-                                  TSS_DAA_CREDENTIAL * Credential,
+		                          TSS_DAA_CREDENTIAL2 * Credential,
                                   BYTE **  EncyptedCred,
                                   UINT32 * EncyptedCredLength);
 #endif

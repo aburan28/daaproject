@@ -42,7 +42,7 @@ int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
 }
 
 
-int TSS_DAA_SIGN_tpm_init(TSS_DAA_CREDENTIAL * Credential,
+int TSS_DAA_SIGN_tpm_init(TSS_DAA_CREDENTIAL2 * Credential,
                           BYTE * VerifierBaseName,
                           UINT32 VerifierBaseNameLength,
                           BYTE **  RPrime,
