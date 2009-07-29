@@ -40,12 +40,12 @@ int main()
  */
   //  SESSION
 
-    printf("Now it begin \n");
+
     group = EC_GROUP_new(EC_GFp_mont_method());
-    printf("Now it begin 2\n");
+
     P = EC_POINT_new(group);
-    printf("Now it begin 3\n");
-   // X = bip_2_bin(&XLength,bi_test1);
+
+
     P->X = (*bi_test1);
     P->Y = (*bi_test2);
     if (ecp_2_hex(P,&X,&Y,&XLength,&YLength)==0) printf("ERROR! in ecp_2_hex \n");

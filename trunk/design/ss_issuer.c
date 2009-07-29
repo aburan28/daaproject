@@ -9,6 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+int TSS_DAA_JOIN_issuer_setup(
+                              TSS_DAA_ISSUER_KEY *   IssuerKey,
+                              TSS_DAA_ISSUER_PROOF * IssuerProof);
 //TODO setup function
 
 int TSS_DAA_JOIN_issuer_init(
@@ -21,12 +24,13 @@ int TSS_DAA_JOIN_issuer_init(
 {
 //	{0,1}t -> nI  // bi_random
 	bi_ptr nI;
+
 	nI = bi_new_ptr();
-	bi_urandom(nI, NONCE_LENGTH);
 
-//	TODO nI -> commreq   ://RSA_Encypt
+	bi_urandom( nI, NONCE_LENGTH );
 
-/*  TODO
+/* 	TODO nI -> commreq   ://RSA_Encypt
+
 	int	RSA_public_encrypt(int flen, const unsigned char *from,
 			unsigned char *to, RSA *rsa,int padding);
 	int	RSA_private_encrypt(int flen, const unsigned char *from,
@@ -57,18 +61,21 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
 
 	//Zq -> u   ://bi_random，bi_mod   // f,u私有
 		bi_ptr u;
+
 		u = bi_new_ptr();
-		bi_urandom(u,NONCE_LENGTH);
+
+		bi_urandom( u, NONCE_LENGTH);
 
 	// 3: TODO u*P1 -> U   f*P1 -> F   :// ?
 	// 4: TODO H1(str||F||U) -> c   :// EVP_Digst_Final
 
 	// 5: u+c*f (mod q) -> s   :// bi_mul，bi_add,
+
 		bi_ptr s   = bi_new_ptr();
 		bi_ptr temp = bi_new_ptr();
 
-		bi_mul(temp, c, f);
-		bi_add(s, u, temp);
-		bi_mod(s, s, q);
+		bi_mul( temp, c, f);
+		bi_add( s, u, temp);
+		bi_mod( s, s, q);
 	// 6: TODO (F，c，s) -> comm.   :// ?
 }
