@@ -18,6 +18,7 @@ extern "C" {
 //typedef struct bignum_st BIGNUM; //define in ossl_type.h
 #define  WINDOW_SIZE 5
 
+//TODO init the Context;
 BN_CTX *Context;
 
 // complex number a + bi
@@ -64,13 +65,13 @@ COMPLEX *Negate( COMPLEX *r, COMPLEX *a, BIGNUM *m )
 	Copy( r, a );
 
 	/* r->x is neg*/
-	if (BN_is_negative(&r-x))
+	if (BN_is_negative(&r->x))
 		BN_set_negative( &r->x, 0);
 	else
 		BN_set_negative( &r->x, 1);
 
 	/* r->y is neg*/
-	if (BN_is_negative(&r-y))
+	if (BN_is_negative(&r->y))
 		BN_set_negative( &r->y, 0);
 	else
 		BN_set_negative( &r->y, 0);
