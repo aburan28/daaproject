@@ -6,56 +6,71 @@
  */
 #include "complex.h"
 
-int complex_iszero(COMPLEX *a)
+void COMP_init( COMPLEX *a )
+{
+	BN_init( &a->x );
+	BN_init( &a->y );
+}
+
+void COMP_free( COMPLEX *a )
+{
+	if ( a == NULL )
+		return ;
+
+	BN_free( &a->x );
+	BN_free( &a->y );
+
+}
+
+int COMP_is_zero(COMPLEX *a)
 {
     if ( BN_is_zero(&a->x) == 1 && BN_is_zero(&a->y) == 1 )
     	return 1;
+
     return 0;
 }
 
-int Set(COMPLEX *a, BIGNUM *x, BIGNUM *y, BIGNUM *m)
+int COMP_set(COMPLEX *a, BIGNUM *x, BIGNUM *y, BIGNUM *m)
 {
 	BIGNUM r;
 
-	if ( x == NULL )
-	{
-		if ( y == NULL )
-			return 0;
-		else
-		{
-			if (!BN_set_word( &a->x, 0 ))
-					return 0;
+	BN_init( &r );
 
-			BN_mod( &r, y, m, Context);
-			if(!BN_copy( &a->y, &r))
-				return 0;
-		}
+	if ( a == NULL || x == NULL || y == NULL || m == NULL )
+	{
+		return 0;
 	}
 	else
 	{
-		if ( y == NULL )
+		BN_mod( &r, x, m, Context );
+		if (!BN_copy( &a->x, &r))
 		{
-			if (!BN_set_word( &a->y, 0))
-				return 0;
-
-			BN_mod( &r, x, m, Context);
-			if(!BN_copy( &a->x, &r))
-				return 0;
-
+			BN_free( &r );
+			return 0;
 		}
-		else
+		BN_mod( &r, y, m, Context );
+		if (!BN_copy (&a->y, &r))
 		{
-
+			BN_free( &r );
+			return 0;
 		}
 
 	}
+
+	BN_free( &r );
+	return 1;
 }
 
 // res = x + y
-COMPLEX *Add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
+COMPLEX *COMP_add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
 {
-	BN_mod_add( &r->x, &a->x, &b->x, m, Context );
-	BN_mod_add( &r->y, &a->y, &b->y, m, Context );
+	if ( r == NULL || a == NULL || b == NULL || m == NULL)
+		return NULL;
+
+	if (!BN_mod_add( &r->x, &a->x, &b->x, m, Context ))
+			return NULL;
+	if (!BN_mod_add( &r->y, &a->y, &b->y, m, Context ))
+		return NULL;
 
 	return r;
 
@@ -65,13 +80,14 @@ COMPLEX *Add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
  * return :success 1, failed 0
  */
 
-int Copy ( COMPLEX *a, COMPLEX *b )
+int COMP_copy ( COMPLEX *a, COMPLEX *b )
 {
 	if ( a == b)
 		return 1;
 
 	if(!BN_copy( &a->x, &b->x))
 		return 0;
+
 	if(!BN_copy( &a->y, &b->y))
 		return 0;
 
@@ -79,9 +95,13 @@ int Copy ( COMPLEX *a, COMPLEX *b )
 }
 
 // res = -x + (-y)i
-COMPLEX *Negate( COMPLEX *r, COMPLEX *a, BIGNUM *m )
+COMPLEX *COMP_negate( COMPLEX *r, COMPLEX *a, BIGNUM *m )
 {
-	Copy( r, a );
+	if ( r == NULL || a == NULL || m == NULL)
+		return NULL ;
+
+	if (! COMP_copy( r, a ))
+		return NULL;
 
 	/* r->x is neg*/
 	if (BN_is_negative(&r->x))
@@ -100,40 +120,78 @@ COMPLEX *Negate( COMPLEX *r, COMPLEX *a, BIGNUM *m )
 }
 
 // res = x - y
-COMPLEX *Sub( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
+COMPLEX *COMP_sub( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
 {
-	BN_mod_sub( &r->x, &a->x, &b->x, m, Context );
-	BN_mod_sub( &r->y, &a->y, &b->y, m, Context );
+	if ( r == NULL || a == NULL || b == NULL || m == NULL )
+		return NULL;
+
+	if (!BN_mod_sub( &r->x, &a->x, &b->x, m, Context ))
+		return NULL;
+
+	if (!BN_mod_sub( &r->y, &a->y, &b->y, m, Context ))
+		return NULL;
 
 	return r;
 }
 
 // res = (xa + xbi) * (xb + ybi) = xa * xb - ya * yb + ((xa + ya) * (xb + yb) - xa * xb - ya * yb) % m
-COMPLEX *Mul( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM * m )
+COMPLEX *COMP_mul( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM * m )
 {
-	BIGNUM tmp1, tmp2, tmp3;
+	BIGNUM *tmp1, *tmp2, *tmp3;
 
-	BN_mod_mul( &tmp1, &a->x, &b->x, m, Context);
-	BN_mod_mul( &tmp2, &a->y, &b->y, m, Context);
+	if ( r == NULL || a == NULL || b == NULL || m == NULL )
+		return NULL;
 
-	BN_mod_add( &tmp3, &a->x, &a->y, m, Context);
-	BN_mod_add( &r->y, &b->x, &b->y, m, Context);
-	BN_mod_mul( &r->y, &tmp3, &r->y, m, Context);
+	tmp1 = BN_new();
+	tmp2 = BN_new();
+	tmp3 = BN_new();
 
-	BN_mod_sub( &r->y, &r->y, &tmp1, m ,Context);
-	BN_mod_sub( &r->y, &r->y, &tmp2, m, Context);
 
-	BN_mod_sub( &r->x, &tmp1, &tmp2, m, Context);
+	if (!BN_mod_mul( tmp1, &a->x, &b->x, m, Context))
+		goto err;
+	if (!BN_mod_mul( tmp2, &a->y, &b->y, m, Context))
+		goto err;
+
+	if (!BN_mod_add( tmp3, &a->x, &a->y, m, Context))
+		goto err;
+	if (!BN_mod_add( &r->y, &b->x, &b->y, m, Context))
+		goto err;
+	if (!BN_mod_mul( &r->y, tmp3, &r->y, m, Context))
+		goto err;
+
+	if (!BN_mod_sub( &r->y, &r->y, tmp1, m ,Context))
+		goto err;
+	if (!BN_mod_sub( &r->y, &r->y, tmp2, m, Context))
+		goto err;
+
+	if (!BN_mod_sub( &r->x, tmp1, tmp2, m, Context))
+		goto err;
+
+    BN_free( tmp1 );
+    BN_free( tmp2 );
+    BN_free( tmp3 );
 
     return r;
+
+err:
+
+	BN_free( tmp1 );
+    BN_free( tmp2 );
+    BN_free( tmp3 );
+
+    return NULL;
 }
 
 // if x = a + bi
 //    res = a - bi
-COMPLEX *Conj( COMPLEX *r, COMPLEX *a, BIGNUM * m )
+COMPLEX *COMP_conj( COMPLEX *r, COMPLEX *a, BIGNUM * m )
 {
+	if ( r == NULL || a == NULL || m == NULL)
+		return NULL ;
 
-	Copy( r, a );
+	if (!COMP_copy( r, a ))
+		return NULL;
+
 	BN_set_negative( &r->y, 1);
 
 	return r;
@@ -141,49 +199,97 @@ COMPLEX *Conj( COMPLEX *r, COMPLEX *a, BIGNUM * m )
 }
 
 // r = 1/a = (x - bi)/(a * a + b * b)
-COMPLEX *Inver( COMPLEX *r, COMPLEX *a, BIGNUM * m )
+COMPLEX *COMP_inver( COMPLEX *r, COMPLEX *a, BIGNUM * m )
 {
 	BIGNUM sqr1, sqr2;
 	int ret = 0;
 
+	if ( r == NULL || a == NULL || m == NULL)
+		return NULL ;
+
+	BN_init( &sqr1 );
+	BN_init( &sqr2 );
+
 	// TODO check the return value
 	ret = BN_mod_sqr( &sqr1, &a->x, m, Context);
-	if ( ret )
+	if ( !ret )
+	{
+		BN_free( &sqr1 );
+		BN_free( &sqr2 );
 		return NULL;
+	}
 
 	ret = BN_mod_sqr( &sqr2, &a->x, m, Context);
-	if ( ret )
+	if ( !ret )
+	{
+		BN_free( &sqr1 );
+		BN_free( &sqr2 );
 		return NULL;
+	}
 
 	ret = BN_mod_add( &sqr1, &sqr1, &sqr2, m, Context);
-	if ( ret )
+	if ( !ret )
+	{
+		BN_free( &sqr1 );
+		BN_free( &sqr2 );
 		return NULL;
+	}
 
 	if ( !BN_mod_inverse( &sqr2, &sqr1, m, Context) )
+	{
+		BN_free( &sqr1 );
+		BN_free( &sqr2 );
 		return NULL;
+	}
 
-	Conj( r, a, m );
+	COMP_conj( r, a, m );
 
 	ret = BN_mod_mul( &r->x, &r->x, &sqr2, m, Context );
-	if ( ret )
+	if ( !ret )
+	{
+		BN_free( &sqr1 );
+		BN_free( &sqr2 );
 		return NULL;
+	}
 
 	ret = BN_mod_mul( &r->y, &r->y, &sqr2, m, Context );
-	if ( ret )
+	if ( !ret )
+	{
+		BN_free( &sqr1 );
+		BN_free( &sqr2 );
 		return NULL;
+	}
 
 	return r;
 }
 
 // r = a/b = a * (1/b)
-COMPLEX *Div( COMPLEX *r, COMPLEX *a, COMPLEX * b, BIGNUM * m )
+COMPLEX *COMP_div( COMPLEX *r, COMPLEX *a, COMPLEX * b, BIGNUM * m )
 {
 	COMPLEX ret;
-	Inver( &ret, b, m );
-	Mul( &ret, &ret, a, m );
-	Copy( r, &ret );
+
+	if ( r == NULL || a == NULL || b == NULL || m == NULL)
+		return NULL ;
+
+	COMP_init( &ret );
+
+	if (!COMP_inver( &ret, b, m ))
+		goto err;
+
+	if (!COMP_mul( &ret, &ret, a, m ))
+		goto err;
+
+	if ( !COMP_copy( r, &ret ))
+		goto err;
+
+	COMP_free( &ret );
 
 	return r;
+
+err:
+	COMP_free( &ret );
+
+	return NULL;
 }
 
 int Window( BIGNUM *a, int i, int *nbs, int *nzs, int window_size)
@@ -233,44 +339,59 @@ int Window( BIGNUM *a, int i, int *nbs, int *nzs, int window_size)
  * sliding window for speeding up
  *
  */
-COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
+COMPLEX *COMP_pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 {
 	/* slid window */
 	int i, j, nb, n, nbw, nzs, ret;
 	COMPLEX  u, u2, t[16];
 
-	if ( r == NULL )
-		return r;
+	if ( r == NULL || a == NULL || b == NULL || m == NULL )
+		return NULL;
 
-	if (complex_iszero(a))
+	COMP_init( &u );
+	COMP_init( &u2 );
+	for ( i = 0; i < 16; i++)
+		COMP_init( &t[i] );
+
+	if ( COMP_is_zero(a) )
 	{
-		BN_set_word( &r->x, (BN_ULONG)0 );
-		BN_set_word( &r->y, (BN_ULONG)0 );
-		return r;
+		if (!BN_set_word( &r->x, (BN_ULONG)0 ))
+			goto err;
+		if (!BN_set_word( &r->y, (BN_ULONG)0 ))
+			goto err;
+
+		goto out;
 	}
 
 	if (BN_is_zero( b )) /* a^b = 1 */
 	{
-		BN_set_word( &r->x, (BN_ULONG)1 );
-		BN_set_word( &r->y, (BN_ULONG)0 );
-		return r;
+		if (!BN_set_word( &r->x, (BN_ULONG)1 ))
+			goto err;
+		if (!BN_set_word( &r->y, (BN_ULONG)0 ))
+			goto err;
+		goto out;
 	}
 
 	/* r = a */
-	ret = Copy( &u, a );
-	if (ret != 0)
-		return NULL;
+	ret = COMP_copy( &u, a );
+	if ( !ret )
+		goto err;
 
 	if (BN_is_word( b, 1 ))
 	{
-		Copy( r, a);
-		return r;
+		COMP_copy( r, a);
+		goto out;
 	}
 
-	Mul( &u2, &u, &u, m);
-	Copy( &t[0], &u );
+	if (!COMP_mul( &u2, &u, &u, m))
+		goto err;
+	if (!COMP_copy( &t[0], &u ))
+		goto err;
 	for ( i = 1; i < 16; i++)
-		Mul( &t[i], &t[i-1], &u2, m);
+	{
+		if (!COMP_mul( &t[i], &t[i-1], &u2, m))
+			goto err;
+	}
 
 	nb = BN_num_bits(b);
 	if (nb > 1)
@@ -279,21 +400,46 @@ COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m )
 		{
 			n = Window( b, i, &nbw, &nzs, WINDOW_SIZE);
 			for ( j = 0; j < nbw; j++ )
-				Mul( &u, &u, &u , m);
+			{
+				if (!COMP_mul( &u, &u, &u , m))
+					goto err;
+			}
 
 			if ( n > 0 )
-				Mul( &u, &u, &t[n/2], m);
+			{
+				if (!COMP_mul( &u, &u, &t[n/2], m))
+					goto err;
+			}
 
 			i -= nbw;
 			if (nzs)
 			{
 				for( j = 0; j< nzs; j++)
-				   Mul(&u, &u, &u, m);
+				{
+					if (!COMP_mul(&u, &u, &u, m))
+						goto err;
+				}
 
 				i -= nzs;
 			}
 		}
 	}
-	ret = Copy(r, &u);
+	ret = COMP_copy(r, &u);
+	if( !ret )
+		goto err;
+
+out:
+	COMP_free( &u );
+	COMP_free( &u2 );
+	for ( i = 0; i < 16; i++)
+		COMP_free( &t[i] );
+
 	return r;
+err:
+	COMP_free( &u );
+	COMP_free( &u2 );
+	for ( i = 0; i < 16; i++)
+		COMP_free( &t[i] );
+
+	return NULL;
 }

@@ -73,7 +73,7 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL pr
     if (!precomp)
     {
     	extract( A, &x, &y);
-    	//TODO ADD POINT and get the slope of line
+// TODO ADD POINT and get the slope of line
 
     	/*store values in store[]  */
     	BN_copy( &store[ptr++], &x );
@@ -183,10 +183,9 @@ int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL pre
 	COMPLEX con_res;
 
 	// TODO  precompute using AFFINE
-	// TODO  complex set function
-	//SetWord( res, 1);
-	BN_set_word( &res->x, 1);
-	BN_set_word( &res->y, 0);
+
+	ret = BN_set_word( &res->x, 1);
+	ret = BN_set_word( &res->y, 0);
 
 	ret = EC_POINT_copy(&A, P);
 	for ( i = 0; i< 42; i++ )
@@ -234,8 +233,9 @@ int  ecap(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, C
     BIGNUM  Qx;
     COMPLEX Qy;
     BIGNUM xx,yy;
+    int ret;
 
-    EC_POINT_get_affine_coordinates_GFp(&ec_group, Q, &xx, &yy, Context);
+    ret = EC_POINT_get_affine_coordinates_GFp(&ec_group, Q, &xx, &yy, Context);
     /*
     Qx=-xx;
     Qy.set((Big)0,yy);
@@ -245,7 +245,8 @@ int  ecap(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, C
 	else
 		BN_set_negative( &xx, 1 );
 
-	BN_copy(Qx, &xx);
+	if (!BN_copy(Qx, &xx))
+		return 0;
 
 	BN_set_word(&xx, 0);
 	// TODO set funtion
