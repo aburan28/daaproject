@@ -30,19 +30,21 @@ typedef struct complex_st{
 
 }COMPLEX;
 
-int complex_iszero(COMPLEX *a);
-COMPLEX *Add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m );
-int Copy ( COMPLEX *a, COMPLEX *b );
-COMPLEX *Negate( COMPLEX *r, COMPLEX *a, BIGNUM *m );
-COMPLEX *Sub( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m );
-COMPLEX *Mul( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM * m );
-COMPLEX *Conj( COMPLEX *r, COMPLEX *a, BIGNUM * m );
-COMPLEX *Inver( COMPLEX *r, COMPLEX *a, BIGNUM * m );
-COMPLEX *Div( COMPLEX *r, COMPLEX *a, COMPLEX * b, BIGNUM * m );
-int Window( BIGNUM *a, int i, int *nbs, int *nzs, int window_size);
-COMPLEX *Pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m );
-int Set(BIGNUM *x, BIGNUM *y);
 
+void COMP_init( COMPLEX *a );
+void COMP_free( COMPLEX *a );
+int COMP_is_zero(COMPLEX *a);
+int COMP_set(COMPLEX *a, BIGNUM *x, BIGNUM *y, BIGNUM *m);
+COMPLEX *COMP_add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m );
+int COMP_copy ( COMPLEX *a, COMPLEX *b );
+COMPLEX *COMP_negate( COMPLEX *r, COMPLEX *a, BIGNUM *m );
+COMPLEX *COMP_sub( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m );
+COMPLEX *COMP_mul( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM * m );
+COMPLEX *COMP_conj( COMPLEX *r, COMPLEX *a, BIGNUM * m );
+COMPLEX *COMP_inver( COMPLEX *r, COMPLEX *a, BIGNUM * m );
+COMPLEX *COMP_div( COMPLEX *r, COMPLEX *a, COMPLEX * b, BIGNUM * m );
+int Window( BIGNUM *a, int i, int *nbs, int *nzs, int window_size);
+COMPLEX *COMP_pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m );
 
 #ifdef  __cplusplus
 }

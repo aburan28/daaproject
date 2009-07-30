@@ -4,6 +4,7 @@
  *  Created on: 2009-7-28
  *      Author: ctqmumu
  */
+#if 0
 
 #include "daa.h"
 #include <stdio.h>
@@ -113,3 +114,4 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
 
 	// 6: TODO (F，c，s) -> comm.   :// ?
 }
+#endif
