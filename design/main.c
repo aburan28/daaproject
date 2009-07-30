@@ -9,7 +9,7 @@
 #include "transform.h"
 #include <stdio.h>
 
-
+#if 0
 int main()
 {
 
@@ -102,4 +102,4 @@ int main()
 	printf("\nnbin1 is %s\n",outit); */
 
 //	printf("\n bi_test2 is %s\n",bi_2_hex_char(bi_test2));
-
+#endif

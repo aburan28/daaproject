@@ -135,7 +135,7 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL pr
 // precomputed ZZn's (about 500 of them).
 //
 
-BOOL fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL precomp,BIGNUM *store, COMPLEX *res)
+int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL precomp,BIGNUM *store, COMPLEX *res)
 {
     /*int i,ptr=0;
     Big p;
