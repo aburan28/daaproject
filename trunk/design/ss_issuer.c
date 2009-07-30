@@ -70,12 +70,12 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
 	// 4: TODO H1(str||F||U) -> c   :// EVP_Digst_Final
 
 	// 5: u+c*f (mod q) -> s   :// bi_mul，bi_add,
+//		bi_ptr s   = bi_new_ptr();
+//		bi_ptr temp = bi_new_ptr();
+//
+//		bi_mul(temp, c, f);
+//		bi_add(s, u, temp);
+//		bi_mod(s, s, q);
 
-		bi_ptr s   = bi_new_ptr();
-		bi_ptr temp = bi_new_ptr();
-
-		bi_mul( temp, c, f);
-		bi_add( s, u, temp);
-		bi_mod( s, s, q);
 	// 6: TODO (F，c，s) -> comm.   :// ?
 }

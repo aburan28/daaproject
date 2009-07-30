@@ -47,16 +47,21 @@ COMPLEX *Add( COMPLEX *r, COMPLEX *a, COMPLEX *b, BIGNUM *m )
 
 }
 
-/* a = b */
+/* a = b
+ * return :success 1, failed 0
+ */
+
 int Copy ( COMPLEX *a, COMPLEX *b )
 {
 	if ( a == b)
+		return 1;
+
+	if(!BN_copy( &a->x, &b->x))
+		return 0;
+	if(!BN_copy( &a->y, &b->y))
 		return 0;
 
-	BN_copy( &a->x, &b->x);
-	BN_copy( &a->y, &b->y);
-
-	return 0;
+	return 1;
 }
 
 // res = -x + (-y)i
