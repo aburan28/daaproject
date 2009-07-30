@@ -14,7 +14,7 @@
  * Kent Yoder <shpedoikal@gmail.com>
  *
  */
-
+#if 0
 #include <string.h>
 
 #include <openssl/evp.h>
@@ -270,3 +270,4 @@ out:
 		RSA_free(rsa);
         return rv;
 }
+#endif

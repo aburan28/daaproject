@@ -28,6 +28,8 @@ int TSS_DAA_JOIN_issuer_init(
 	nI = bi_new_ptr();
 
 	bi_urandom( nI, NONCE_LENGTH );
+	RSA rsa;
+	rsa.
 
 // 	nI -> commreq   ://RSA_Encypt
 //
@@ -74,6 +76,7 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
 	*/
 	 EVP_MD *digest = NULL;
 
+//	 26: #define DAA_PARAM_MESSAGE_DIGEST_ALGORITHM "SHA1"
 	 digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM ); // TODO  no define the DAA_PARAM_MESSAGE_DIGEST_ALGORITHM
 
 	 EVP_MD_CTX mdctx;
