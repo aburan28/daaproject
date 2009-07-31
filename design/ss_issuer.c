@@ -32,9 +32,11 @@ int TSS_DAA_JOIN_issuer_init(
 	UINT32 hex_ni_len;
 												//		1.	{0,1}t -> nI  // bi_random
 	ni = bi_new_ptr();
-	bi_urandom( nI, NONCE_LENGTH );
+	bi_urandom( ni, NONCE_LENGTH );
 
-	eni_st = malloc(2048);					   // 		built the final commreq
+	rsa = RSA_new();
+
+	eni_st = malloc(2048);					   //TODO COMMON VAR 		built the final commreq
 
 	hex_ni = bi_2_hex_char( ni );
 	hex_ni_len = strlen( hex_ni );             //   	change ni to hex_ni
@@ -43,25 +45,25 @@ int TSS_DAA_JOIN_issuer_init(
 	rsa->n = BN_bin2bn( PlatformEndorsemenPubKey , PlatformEndorsemenPubkeyLength , rsa->n);    // setup rsa
     if ( ( rsa->e == NULL ) || ( rsa->n == NULL ) )
     {
-    	free(eni_st);
+    	free(eni_st);// TODO release memory
     	return 0;
     }
 												//					2.	nI -> commreq
 	rv = RSA_public_encrypt( hex_ni_len, hex_ni , eni_st , rsa , RSA_NO_PADDING);
 	if (rv == -1)
 	{
-	    	free(eni_st);
+	    	free(eni_st);// TODO ...
 	    	return 0;
 	}
 
-	EncryptedNonceOfIssuer = &eni_st;          // send out
-	EncryptedNonceOfIssuerLength = rv;
+	*EncryptedNonceOfIssuer = eni_st;          // send out
+	*EncryptedNonceOfIssuerLength = rv;
 
-	free(eni_st);                              // here we have ni and hex_ni not free !
+	free(eni_st);   //TODO                            // here we have ni and hex_ni not free !
 	return 1;
 }
 
-int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
+int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,//TODO
 		                          TSS_DAA_CREDENTIAL2 * Credential,
 		                          TSS_DAA_ISSUER_PK * 		  IssuerPK,
                                   BYTE **  EncyptedCred,
@@ -70,22 +72,22 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
 	int rv, e_size = 1;
 	unsigned char exp[] = { 0x01 };
 	BYTE *temp = NULL , *str = NULL , *f = NULL , *c = NULL;
-	UINT32 templength;
+	UINT32 templength, DaaSeed;
 	bi_ptr u = NULL , fn = NULL , cn = NULL ,s = NULL , temp = NULL;
 
-	 u = bi_new_ptr();
+	 u = bi_new_ptr();// TODO for all bi_ptr
 
 	 EVP_MD *digest = NULL;
 	 EVP_MD_CTX mdctx;
 
 	 digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 	 rv = EVP_DigestInit( &mdctx , digest ); 								 //  initialization the ||
-
+     // TODO check rv
 														 // 1: 1||X||Y||nI -> str
 
 	 rv = EVP_DigestUpdate(&mdctx,  exp , e_size );			//  1
 
-	 temp = BN_bn2hex ( IssuerPK->CapitalX.X);
+	 temp = BN_bn2hex ( &(IssuerPK->CapitalX.X));//TODO address for all
 	 templength = strlen( temp );
 	 rv = EVP_DigestUpdate(&mdctx,  temp , templength );	//  x.x
 	 OPENSSL_free( temp );
@@ -105,7 +107,7 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
 	 rv = EVP_DigestUpdate(&mdctx,  temp , templength );	//  y.y
 	 OPENSSL_free( temp );
 
-	 temp = BN_bn2hex ( *TpmJoinSession->IssuerNone );
+	 temp = BN_bn2hex ( TpmJoinSession->IssuerNone );
 	 templength = strlen( temp );
 	 rv = EVP_DigestUpdate(&mdctx,  temp , templength );	//	nI
 	 OPENSSL_free( temp );
@@ -118,14 +120,15 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
 	   exp[0] =  0x00 ;
 	   rv = EVP_DigestUpdate(&mdctx,  exp , e_size );
 
-	   temp = bi_2_hex_char ( DaaSeed );                    //TODO DaaSeed and Kk need to define
-	   templength = strlen( temp );
-	   rv = EVP_DigestUpdate(&mdctx,  temp , templength );
+	   DaaSeed = DAASEED;
+	   temp = (BYTE *) &DaaSeed;                    //TODO DaaSeed and Kk need to define
+	   templength = sizeof( DaaSeed );
+	   rv = EVP_DigestUpdate(&mdctx, temp, templength );
 	   OPENSSL_free( temp );
 
-	   temp = bi_2_hex_char ( Kk );
-	   templength = strlen( temp );
-	   rv = EVP_DigestUpdate(&mdctx,  temp , templength );
+	   //temp = bi_2_hex_char ( Kk ); // 	TODO #define Kk "islab"
+	   templength = strlen( Kk );
+	   rv = EVP_DigestUpdate(&mdctx,  Kk , templength );
 	   OPENSSL_free( temp );
 
 	   f = malloc(EVP_DigestFinal_OUT_SIZE);
@@ -133,33 +136,33 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession,
 
 														    // 3:  u*P1 -> U   f*P1 -> F
 
-		fn = BN_bin2bn(f, EVP_DigestFinal_OUT_SIZE, NULL);	// change BYTE* f to bi_ptr fn
+		fn = BN_bin2bn(f, EVP_DigestFinal_OUT_SIZE, NULL);	// change BYTE* f to bi_ptr fn //TODO
 
 	    bi_urandom( u, NONCE_LENGTH );  		            //Zq -> u
 
-		EC_GROUP *group;
+		EC_GROUP *group;// TODO
 		EC_POINT *U, *F;
 		BN_CTX *ctx = NULL;
 
 	 	group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
 
-	 	ctx = BN_CTX_new();
-
 	 	U = EC_POINT_new(group);
 	 	F = EC_POINT_new(group);
 
+	 	ctx = BN_CTX_new();
+
 	 	EC_POINT_mul(group, U, NULL, IssuerPK->Eccparmeter.CapitalP1 , u, ctx);	// mul the F
-	 	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , f, ctx); // mul the U
+	 	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , fn, ctx); // mul the U
 
 	// 4: TODO H1(str||F||U) -> c   :// EVP_Digst_Final
-	 	rv = EVP_DigestUpdate(&mdctx,  str , EVP_DigestFinal_OUT_SIZE );     // str
+	 	rv = EVP_DigestUpdate(&mdctx,  str , EVP_DigestFinal_OUT_SIZE );     // str release
 
-		temp = BN_bn2hex ( F.X);
+		temp = BN_bn2hex ( F.X); // TODO address
 		templength = strlen( temp );
 		rv = EVP_DigestUpdate(&mdctx,  temp , templength );	//  F.x
 		OPENSSL_free( temp );
 
-		temp = BN_bn2hex ( F.Y );
+		temp = BN_bn2hex ( F.Y );//
 		templength = strlen( temp );
 		rv = EVP_DigestUpdate(&mdctx,  temp , templength );	//  F.y
 		OPENSSL_free( temp );
