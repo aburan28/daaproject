@@ -7,6 +7,10 @@
 #define SS_ISSUER_H
 #include "daa.h"
 
+
+#define RSA_NO_PADDING				       3
+#define EVP_DigestFinal_OUT_SIZE   		   20
+#define DAA_PARAM_MESSAGE_DIGEST_ALGORITHM "SHA1"
 // Built issuer parameters
 int TSS_DAA_JOIN_issuer_setup(
                               TSS_DAA_ISSUER_KEY *   IssuerKey,
