@@ -26,6 +26,7 @@ typedef EC_POINT ECC_POINT;
 
 //TODO  define const length
 #define NONCE_LENGTH 20
+#define DAASEED 0x1234
 
 // define length end
 
