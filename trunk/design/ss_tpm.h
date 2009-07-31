@@ -11,7 +11,6 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
                                     UINT32 EncryptedNonceOfIssuerLength,
                                     TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
                                     TSS_DAA_ISSUER_PK        * IssuerPK
-                               //     TSS_DAA_ISSUER_JOIN_SESSION * TpmJoinSession
                                     ); //TODO change to BYTE *
 
 int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
