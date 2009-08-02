@@ -27,11 +27,8 @@ typedef EC_POINT ECC_POINT;
 //TODO  define const length
 #define NONCE_LENGTH 20
 #define DAASEED 0x1234
-#define RSA_MODULE_LENGTH 2048
 
 // define length end
-/* declare the gloable ECC group */
-EC_GROUP *group;
 
 typedef struct tdECCParmeter
 {
@@ -57,9 +54,9 @@ typedef struct tdIssuerPk
 {
     ECC_PARAMETER  Eccparmeter;
 
-    ECC_POINT  CapitalX;
+    ECC_POINT * CapitalX;
 
-    ECC_POINT  CapitalY;
+    ECC_POINT * CapitalY;
 
 }TSS_DAA_ISSUER_PK;
 
@@ -87,9 +84,9 @@ typedef struct tdIssuerKey
 
 typedef struct tdIssuerProof
 {
-	ECC_POINT CapitalXPrime;
+	ECC_POINT * CapitalXPrime;
 
-    ECC_POINT CapitalYPrime;
+    ECC_POINT * CapitalYPrime;
 
 }TSS_DAA_ISSUER_PROOF;
 
