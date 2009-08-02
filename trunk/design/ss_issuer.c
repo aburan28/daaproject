@@ -4,7 +4,7 @@
  *  Created on: 2009-7-28
  *      Author: ctqmumu
  *
- *      About Err
+ *      about err
  *      	EVP_DigestInit_ex(), EVP_DigestUpdate() and EVP_DigestFinal_ex() return 1 for success and 0 for failure.
  *      	RSA_public_encrypt() ,On error, -1 is returned;
  *      	BN_bn2bin() returns the length of the big-endian number placed at to. BN_bin2bn() returns the BIGNUM , NULL on error.
@@ -22,9 +22,100 @@
 
 int TSS_DAA_JOIN_issuer_setup(
                               TSS_DAA_ISSUER_KEY *   IssuerKey,
-                              TSS_DAA_ISSUER_PROOF * IssuerProof);
-//TODO setup function
+                              TSS_DAA_ISSUER_PROOF * IssuerProof)
+{
+	bi_ptr x = NULL , y = NULL;
+	EC_POINT *P1 = NULL , *P2 = NULL , X = NULL , Y = NULL , XP = NULL , YP = NULL;
+	int ret;
 
+	x = bi_new_ptr();
+	y = bi_new_ptr();
+
+	if (!group)
+		group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
+
+	if ( !(IssuerKey->IssuerPK.CapitalX) ) IssuerKey->IssuerPK.CapitalX = EC_POINT_new(group);	// if the key-world nothing we built it
+	if ( !(IssuerKey->IssuerPK.CapitalY) ) IssuerKey->IssuerPK.CapitalY = EC_POINT_new(group);
+	if ( !(IssuerKey->IssuerPK.Eccparmeter.CapitalP1) ) IssuerKey->IssuerPK.Eccparmeter.CapitalP1 = EC_POINT_new(group);
+	if ( !(IssuerKey->IssuerPK.Eccparmeter.CapitalP2) ) IssuerKey->IssuerPK.Eccparmeter.CapitalP2 = EC_POINT_new(group);
+	if ( !(IssuerProof->CapitalXPrime) ) IssuerProof->CapitalXPrime = EC_POINT_new(group);
+	if ( !(IssuerProof->CapitalYPrime) ) IssuerProof->CapitalYPrime = EC_POINT_new(group);
+
+	P1 = EC_POINT_new(group);
+	P2 = EC_POINT_new(group);
+	XP = EC_POINT_new(group);
+	YP = EC_POINT_new(group);
+	X = EC_POINT_new(group);
+	Y = EC_POINT_new(group);
+
+
+// random x,y;
+	bi_urandom( x, NONCE_LENGTH );
+	bi_urandom( y, NONCE_LENGTH );
+
+//TODO set P1 P2
+// X=x*P2 Y=y*P2
+	ret = EC_POINT_mul(group, X, NULL, P2 , x, ctx);	// mul the x*P2 = X
+	if (!ret) goto err;
+	ret = EC_POINT_mul(group, Y, NULL, P2 , y, ctx);	// mul the y*P2 = Y
+	if (!ret) goto err;
+
+// XP=x*P1 YP=y*P1
+	ret = EC_POINT_mul(group, XP, NULL, P1 , x, ctx);	// mul the x*P1 = XP
+	if (!ret) goto err;
+	ret = EC_POINT_mul(group, YP, NULL, P1 , y, ctx);	// mul the y*P1 = YP
+	if (!ret) goto err;
+
+// Here is the list maybe make in future developing
+// IPK Kk
+	IssuerKey->IssuerSK.x = x;
+	IssuerKey->IssuerSK.y = y;
+
+	x = NULL ;
+	y = NULL ;
+
+	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalX , X);
+	if (!ret) goto err;
+	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalY , Y);
+	if (!ret) goto err;
+	ret = EC_POINT_copy( IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , P1);
+	if (!ret) goto err;
+	ret = EC_POINT_copy( IssuerKey->IssuerPK.Eccparmeter.CapitalP2 , P2);
+	if (!ret) goto err;
+	ret = EC_POINT_copy( IssuerProof->CapitalXPrime , XP);
+	if (!ret) goto err;
+	ret = EC_POINT_copy( IssuerProof->CapitalYPrime , YP);
+	if (!ret) goto err;
+
+	if ( x ) bi_free(x);
+	if ( y ) bi_free(y);
+	EC_POINT_free(X);
+	EC_POINT_free(Y);
+	EC_POINT_free(P1);
+	EC_POINT_free(P2);
+	EC_POINT_free(XP);
+	EC_POINT_free(YP);
+
+	return 1;
+err:
+	bi_free(x);
+	bi_free(y);
+	EC_POINT_free(X);
+	EC_POINT_free(Y);
+	EC_POINT_free(P1);
+	EC_POINT_free(P2);
+	EC_POINT_free(XP);
+	EC_POINT_free(YP);
+
+	EC_POINT_free(IssuerKey->IssuerPK.CapitalX);
+	EC_POINT_free(IssuerKey->IssuerPK.CapitalY , Y);
+	EC_POINT_free(IssuerKey->IssuerPK.Eccparmeter.CapitalP1);
+	EC_POINT_free(IssuerKey->IssuerPK.Eccparmeter.CapitalP2);
+	EC_POINT_free(IssuerProof->CapitalXPrime);
+	EC_POINT_free(IssuerProof->CapitalYPrime);
+
+	return 0;
+}
 int TSS_DAA_JOIN_issuer_init(
 							BYTE * 					  	  PlatformEndorsementPubKey,
                             UINT32 					  	  PlatformEndorsementPubkeyLength,
@@ -52,7 +143,7 @@ int TSS_DAA_JOIN_issuer_init(
 	hex_ni_len = strlen( hex_ni );             //   	change ni to hex_ni
 
 	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
-	rsa->n = BN_bin2bn( PlatformEndorsemenPubKey , PlatformEndorsemenPubkeyLength , rsa->n);    // setup rsa
+	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);    // setup rsa
     if ( ( rsa->e == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 												//					2.	nI -> commreq
@@ -81,23 +172,33 @@ err:
 	return 0;
 }
 
-int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_KEY * IssuerKey,
-								  TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession,
-                                  TSS_DAA_CREDENTIAL2 * Credential,
-                                  BYTE **  EncyptedCred,
-                                  UINT32 * EncyptedCredLength)
+int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
+								  UINT32				PlatformEndorsementPubkeyLength,
+								  TSS_DAA_ISSUER_KEY *	IssuerKey,
+								  TSS_DAA_ISSUER_JOIN_SESSION *	IssuerJoinSession,
+                                  TSS_DAA_CREDENTIAL2 *			Credential,
+                                  BYTE ** 						EncyptedCred,
+                                  UINT32 *						EncyptedCredLength)
 {
-//	s*P1 – c*F - U’   :
-
+	//s*P1 – c*F - U’
 	point_conversion_form_t form;
-	EC_GROUP *group = NULL;
+	BYTE * cre;
 	BN_CTX *ctx = NULL;
 	EC_POINT *SP1 = NULL , *CF = NULL , *UP = NULL , *A = NULL , *B = NULL , *C = NULL , *XA = NULL , *RXYF = NULL;
 	bi_ptr r = NULL , xy = NULL , rxy = NULL;
-	char *ahex = NULL, *bhex = NULL, *chex = NULL;
-	int ret , HEX_LENGTH;
+	char *ahex = NULL, *bhex = NULL, *chex = NULL , *aenc = NULL , *benc = NULL , *cenc = NULL;
+	int ret , HEX_LENGTH, e_size = 3;
+	RSA *rsa = NULL;
+	unsigned char exp[] = { 0x01, 0x00, 0x01 };
 
-	group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
+	rsa = RSA_new();
+	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
+	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);
+	if ( ( rsa->e == NULL ) || ( rsa->n == NULL ) )
+		goto err;
+
+	if (!group)
+		group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
 	ctx = BN_CTX_new();
 
 	r = bi_new_ptr();
@@ -125,16 +226,16 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_KEY * IssuerKey,
 	ret = EC_POINT_add(group, UP, SP1, CF , ctx);					// SP1+CF = UP( U’)
 	if ( !ret ) goto err;
 
-//TODO	check rogue list
+	//TODO	check rogue list
 
-//	Zq - r ->finish
+	//	Zq - r ->finish
 
-//	r *P1 - A   y*A - B
+	//	r *P1 - A   y*A - B
 	ret = EC_POINT_mul(group, A, NULL, IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , r , ctx);	// mul the r*P1 = A
 	if ( !ret ) goto err;
 	ret = EC_POINT_mul(group, B, NULL, A , IssuerKey->IssuerSK.y , ctx);						// mul the y*A = B
 	if ( !ret ) goto err;
-//	(x*A + rxy*F)- C   : //
+	//	(x*A + rxy*F)- C
 	ret = EC_POINT_mul(group, XA, NULL, A , IssuerKey->IssuerSK.x , ctx);						// mul the x*A = XA
 	if ( !ret ) goto err;
 	ret = BN_mul(xy , IssuerKey->IssuerSK.x , IssuerKey->IssuerSK.y  , ctx);					// mul the x*y = xy
@@ -145,37 +246,36 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_KEY * IssuerKey,
 	if ( !ret ) goto err;
 	ret = EC_POINT_add(group, C, XA, RXYF, ctx);
 	if ( !ret ) goto err;
-//	(A，B，C) - cre   ://
-	ret = EC_POINT_copy( *(Credential->CapitalA) , A);
+	//	(A，B，C) - cre   ://
+	ret = EC_POINT_copy( &(Credential->CapitalA) , A);
 	if ( !ret ) goto err;
-	ret = EC_POINT_copy( *(Credential->CapitalB) , B);
+	ret = EC_POINT_copy( &(Credential->CapitalB) , B);
 	if ( !ret ) goto err;
-	ret = EC_POINT_copy( *(Credential->CapitalC) , C);
+	ret = EC_POINT_copy( &(Credential->CapitalC) , C);
 	if ( !ret ) goto err;
 
 	A = NULL;
 	B = NULL;
 	C = NULL;
-//	Eek(cre) - ε
-//	ε - TPM   :/
-	ahex = EC_POINT_point2hex(group , *(Credential->CapitalA) , from , ctx);
+	//	Eek(cre) - ε
+	//	ε - TPM
+	ahex = EC_POINT_point2hex(group , &(Credential->CapitalA) , from , ctx);
 	if ( !ahex ) goto err;
-	bhex = EC_POINT_point2hex(group , *(Credential->CapitalB) , from , ctx);
+	bhex = EC_POINT_point2hex(group , &(Credential->CapitalB) , from , ctx);
 	if ( !bhex ) goto err;
-	chex = EC_POINT_point2hex(group , *(Credential->CapitalC) , from , ctx);
+	chex = EC_POINT_point2hex(group , &(Credential->CapitalC) , from , ctx);
 	if ( !chex ) goto err;
 																	//  here len(ahex)==len(abex)==len(chenx)?
 	HEX_LENGTH = strlen(ahex);
-	*EncyptedCred = OPENSSL_malloc(sizeof(BYTE) * HEX_LENGTH * 3 );
-	if ( !(*EncyptedCred) ) goto err;
+	cre = OPENSSL_malloc(sizeof(BYTE) * HEX_LENGTH * 3 );
+	if ( !cre ) goto err;
 
-	*EncyptedCred[0] = '\0';
-	*EncyptedCred = strncat(*EncyptedCred , ahex , HEX_LENGTH);
-	*EncyptedCred = strncat(*EncyptedCred , bhex , HEX_LENGTH);
-	*EncyptedCred = strncat(*EncyptedCred , chex , HEX_LENGTH);
-	*EncyptedCredLength = HEX_LENGTH * 3;
+	cre[0] = '\0';
+	cre = strncat(cre , ahex , HEX_LENGTH);
+	cre = strncat(cre , bhex , HEX_LENGTH);
+	cre = strncat(cre , chex , HEX_LENGTH);
 
-	EC_GROUP_free(group);
+
 	BN_CTX_free(ctx);
 	bi_free(r);
 	bi_free(xy);
@@ -194,9 +294,10 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_KEY * IssuerKey,
 	if ( chex ) OPENSSL_free(chex);
 	if ( (*EncyptedCred) ) OPENSSL_free((*EncyptedCred));
 
+	if (rsa) RSA_free(rsa);
+
 	return 1;
 err:
-	EC_GROUP_free(group);
 	BN_CTX_free(ctx);
 	bi_free(r);
 	bi_free(xy);
@@ -209,6 +310,8 @@ err:
 	if ( C ) EC_POINT_free(C);
 	EC_POINT_free(XA);
 	EC_POINT_free(RXYF);
+
+	if (rsa) RSA_free(rsa);
 
 	if ( ahex ) OPENSSL_free(ahex);
 	if ( bhex ) OPENSSL_free(bhex);
