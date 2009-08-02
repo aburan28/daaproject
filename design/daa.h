@@ -27,8 +27,11 @@ typedef EC_POINT ECC_POINT;
 //TODO  define const length
 #define NONCE_LENGTH 20
 #define DAASEED 0x1234
+#define RSA_MODULE_LENGTH 2048
 
 // define length end
+/* declare the gloable ECC group */
+EC_GROUP *group;
 
 typedef struct tdECCParmeter
 {
