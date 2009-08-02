@@ -10,7 +10,8 @@
 int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
                                     UINT32 EncryptedNonceOfIssuerLength,
                                     TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
-                                    TSS_DAA_ISSUER_PK        * IssuerPK
+                                    TSS_DAA_ISSUER_PK        * IssuerPK,
+                                    TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession,
                                     ) //TODO change to BYTE *
 {
 	int rv, e_size = 1;
@@ -20,8 +21,8 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	int strlen , flen;
 
 	bi_ptr u = NULL , fn = NULL , cn = NULL ,s = NULL , TEMP = NULL;
-	EC_GROUP *group;
-	EC_POINT *U, *F;
+	EC_GROUP *group = NULL;
+	EC_POINT *U = NULL, *F = NULL;
 	BN_CTX *ctx = NULL;
 
 	u = bi_new_ptr();
@@ -87,7 +88,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 		goto err;
 
 
-	str = malloc(EVP_DigestFinal_OUT_SIZE);
+	str = OPENSSL_malloc(EVP_DigestFinal_OUT_SIZE);
 	rv = EVP_DigestFinal_ex(&mdctx, str, &strlen );            	// put Final to str
 	if (!rv)
 		goto err;
@@ -108,7 +109,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if (!rv)
 		goto err;
 
-	f = malloc(EVP_DigestFinal_OUT_SIZE);
+	f = OPENSSL_malloc(EVP_DigestFinal_OUT_SIZE);
 	rv = EVP_DigestFinal_ex(&mdctx, f, &flen );				// put Final to f
 	if (!rv)
 		goto err;
@@ -148,7 +149,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if (!rv)
 		goto err;
 
-	c = malloc(EVP_DigestFinal_OUT_SIZE);
+	c = OPENSSL_malloc(EVP_DigestFinal_OUT_SIZE);
 	rv = EVP_DigestFinal_ex(&mdctx, c, NULL);	 			// out final to c
 
 	cn = BN_bin2bn(c, EVP_DigestFinal_OUT_SIZE, NULL);	// change BYTE* c to bi_ptr cn
@@ -177,9 +178,9 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	EC_POINT_free(F);
 	BN_CTX_free(ctx);
 	EVP_MD_CTX_cleanup(&mdctx);
-	if (!str) free(str);
-	if (!f) free(f);
-	if (!c) free(c);
+	if (!str) OPENSSL_free(str);
+	if (!f) OPENSSL_free(f);
+	if (!c) OPENSSL_free(c);
 	if (!fn) BN_free(fn);
 	if (!cn) BN_free(cn);
 
@@ -197,9 +198,9 @@ err:
 	BN_CTX_free(ctx);
 	EVP_MD_CTX_cleanup(&mdctx);
 
-	if (!str) free(str);
-	if (!f) free(f);
-	if (!c) free(c);
+	if (!str) OPENSSL_free(str);
+	if (!f) OPENSSL_free(f);
+	if (!c) OPENSSL_free(c);
 
 	if (!fn) BN_free(fn);
 	if (!cn) BN_free(cn);
