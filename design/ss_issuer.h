@@ -26,8 +26,8 @@ int TSS_DAA_JOIN_issuer_setup(
 
 
 int TSS_DAA_JOIN_issuer_init(
-							BYTE * 					  	  PlatformEndorsemenPubKey,
-                            UINT32 					  	  PlatformEndorsemenPubkeyLength,
+							BYTE * 					  	  PlatformEndorsementPubKey,
+                            UINT32 					  	  PlatformEndorsementPubkeyLength,
                   //          TSS_DAA_ISSUER_PK * 		  IssuerPK,    Not use
                             TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession,
                             BYTE   ** 	   				  EncryptedNonceOfIssuer,

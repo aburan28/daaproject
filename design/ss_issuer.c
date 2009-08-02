@@ -26,8 +26,8 @@ int TSS_DAA_JOIN_issuer_setup(
 //TODO setup function
 
 int TSS_DAA_JOIN_issuer_init(
-							BYTE * 					  	  PlatformEndorsemenPubKey,
-                            UINT32 					  	  PlatformEndorsemenPubkeyLength,
+							BYTE * 					  	  PlatformEndorsementPubKey,
+                            UINT32 					  	  PlatformEndorsementPubkeyLength,
                             TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession,
                             BYTE   ** 	   				  EncryptedNonceOfIssuer,
                             UINT32 *					  EncryptedNonceOfIssuerLength)
@@ -147,11 +147,7 @@ int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_KEY * IssuerKey,
 	if ( !ret ) goto err;
 //	(A，B，C) - cre   ://
 	ret = EC_POINT_copy( *(Credential->CapitalA) , A);
-	if ( !ret ) goto err;的一个寝室一个
-
-	鬰 ♀06sud(61496957)  2009-08-02 15:59:22
-
-	以下的
+	if ( !ret ) goto err;
 	ret = EC_POINT_copy( *(Credential->CapitalB) , B);
 	if ( !ret ) goto err;
 	ret = EC_POINT_copy( *(Credential->CapitalC) , C);
