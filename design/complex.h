@@ -45,6 +45,7 @@ COMPLEX *COMP_div( COMPLEX *r, COMPLEX *a, COMPLEX * b, BIGNUM * m );
 int Window( BIGNUM *a, int i, int *nbs, int *nzs, int window_size);
 COMPLEX *COMP_pow( COMPLEX *r, COMPLEX *a, BIGNUM * b, BIGNUM * m );
 int COMP_get( COMPLEX *a, BIGNUM *x, BIGNUM *y );
+int COMP_comp( COMPLEX *a, COMPLEX *b );
 
 #ifdef  __cplusplus
 }
