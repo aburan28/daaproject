@@ -94,6 +94,33 @@ int COMP_copy ( COMPLEX *a, COMPLEX *b )
 	return 1;
 }
 
+/* x = a->x, y = a->y */
+int COMP_get( COMPLEX *a, BIGNUM *x, BIGNUM *y )
+{
+	if ( a == NULL )
+		return 0;
+
+	if ( x != NULL )
+		BN_copy( x, &a->x );
+
+	if ( y != NULL )
+		BN_copy( y, &a->y );
+
+	return 1;
+}
+
+/* Compare complex number a, b, 0: a == b, 1: a != b*/
+int COMP_cmp( COMPLEX *a, COMPLEX *b )
+{
+	if ( a == NULL || b == NULL )
+		return -1;
+
+	if ( BN_cmp( a->x, b->x ) || BN_cmp(a->y, b->y))
+		return 1;
+
+	return 0;
+}
+
 // res = -x + (-y)i
 COMPLEX *COMP_negate( COMPLEX *r, COMPLEX *a, BIGNUM *m )
 {

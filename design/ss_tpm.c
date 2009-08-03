@@ -16,6 +16,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 {
 	bi_ptr   u = NULL , f = NULL , c = NULL ,s = NULL , module = NULL, temp = NULL;
 	EC_POINT *U = NULL, *F = NULL;
+	RSA      *rsa = NULL;
 
 	BYTE     *buf = NULL , str[DAA_HASH_SHA1_LENGTH] , hash[DAA_HASH_SHA1_LENGTH];
 	BYTE     exp[] = { 0x01 };
@@ -29,7 +30,9 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	module = bi_new_ptr();
 	if ( module == NULL )
 		return 0;
-	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); // TODO add check
+	rv = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); //return 1 if success
+	if ( !rv )
+		goto err;
 
 	/* 1. Zq -> u */
 	u  = bi_new_ptr();
@@ -44,7 +47,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	/* Return either an EVP_MD structure or NULL if an error occurs. */
 	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );			//  initialization the ||
 	if (!rv)
-		goto err;
+		goto err;RSA      *rsa = NULL;
 
 	/* 1: 1||X||Y||nI -> str */
 	rv = EVP_DigestUpdate(&mdctx,  exp , e_size );			//  1
@@ -75,8 +78,30 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if (!rv)
 		goto err;
 
-	// TODO DECRYPT NI
-	rv = EVP_DigestUpdate(&mdctx,  EncryptedNonceOfIssuer , EncryptedNonceOfIssuerLength );	//	nI
+	/* DECRYPT NI */
+	rsa = RSA_new();
+	if ( rsa == NULL )
+		goto err;
+	// TODO secret key of Ek and Publick key of EK
+	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);
+	rsa->d = BN_bin2bn( PlatformEndorsementSKey, PlatformEndorsementSkeyLength, rsa->d);
+    if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
+    	goto err;
+
+    buf = ( BYTE * )malloc( sizeof(BYTE) * (RSA_MODULE_LENGTH / 8) );
+    if ( buf == NULL )
+    	goto err;
+
+	buf_len = RSA_private_decrypt(EncryptedNonceOfIssuerLength, EncryptedNonceOfIssuer,
+									buf, rsa, RSA_NO_PADDING);
+	if ( !ret )
+	{
+		OPENSSL_free( buf );
+		goto err;
+	}
+
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//	nI
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
@@ -399,7 +424,7 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 	bi_urandom( v, EC_GROUP_get_degree(group) );
 	bi_mod( v, v, module);
 
-	//TODO 5. r'，D' -> HOST   :// ?
+	// 5. r'，D' -> HOST   :// ?
 	mul = bi_new_ptr();
 	bi_mul( mul, v, r_prime );
 
@@ -534,6 +559,7 @@ int TSS_DAA_SIGN_tpm_sign(
 	EVP_MD_CTX_cleanup(&mdctx);
 
 	return 1;
+
 err:
 	if( module )
 		bi_free_ptr( module );
@@ -549,6 +575,4 @@ err:
 	return 0;
 
 	// TODO 4. (c，s，nT) -> HOST   :// ?
-
-
 }
