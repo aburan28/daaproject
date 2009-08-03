@@ -36,7 +36,11 @@ typedef EC_POINT ECC_POINT;
 #define DAA_HASH_SHA1_LENGTH   		   20
 #endif
 
+#define DAA_SIGN_MESSAGE "whuislab"
+
 // define length end
+/* declare the gloable ECC group */
+EC_GROUP *group;
 
 typedef struct tdECCParmeter
 {
@@ -130,6 +134,9 @@ typedef struct tdCredential
 typedef struct tdTPMSession
 {
     bi_ptr f;
+
+    bi_ptr v;
+
     EC_POINT *B;
 
 }TSS_DAA_TPM_JOIN_SESSION;
