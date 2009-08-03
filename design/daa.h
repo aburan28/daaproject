@@ -23,9 +23,9 @@
 
 typedef EC_POINT ECC_POINT;
 
-
 // define const length
 #define NONCE_LENGTH 160
+
 #define DAASEED 0x1234
 
 #ifndef DAA_PARAM_MESSAGE_DIGEST_ALGORITHM

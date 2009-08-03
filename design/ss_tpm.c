@@ -36,13 +36,15 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 
 	/* 1. Zq -> u */
 	u  = bi_new_ptr();
+	if ( u == NULL )
+		goto err;
 	bi_urandom( u, NONCE_LENGTH );
 	bi_mod( u, u, module );
 
 
-	EVP_MD_CTX_init(&mdctx);
+	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
-	if (!digest)
+	if ( !digest )
 		goto err;
 	/* Return either an EVP_MD structure or NULL if an error occurs. */
 	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );			//  initialization the ||
@@ -207,6 +209,8 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if ( IssuerJoinSession->ch == NULL )
 	{
 		IssuerJoinSession->ch = bi_new_ptr();
+		if ( IssuerJoinSession->ch == NULL )
+			goto err;
 	}
 	bi_set( IssuerJoinSession->ch ,c );
 
@@ -214,6 +218,11 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if ( IssuerJoinSession->s == NULL )
 	{
 		IssuerJoinSession->s = bi_new_ptr();
+		if ( IssuerJoinSession->s == NULL )
+		{
+			bi_free_ptr( IssuerJoinSession->ch );
+			goto err;
+		}
 	}
 	bi_set( IssuerJoinSession->s, s);
 
@@ -365,18 +374,22 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 	bi_ptr module = NULL , r_prime = NULL , v = NULL , mul = NULL;
 	BYTE * buf = NULL , hash[DAA_HASH_SHA1_LENGTH +1];
 	UINT32 hash_len, buf_len;
-	int field_len, rev;
+	int field_len, ret;
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
 
 	/* Get group module p */
 	module = bi_new_ptr();
-	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+	if ( module == NULL )
+		return 0;
+	ret = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+	if ( !ret )
+		goto err;
 
 	/* return either an EVP_MD structure or NULL if an error occurs. */
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 	if ( !digest )
-		return 0;
+		goto err;
 
 	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );			//  initialization the ||
 	if (!rv)
@@ -387,7 +400,8 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 	{
 		/* Zq -> r'  */
 		r_prime = bi_new_ptr();
-
+		if ( r_prime == NULL )
+			goto err;
 		// int     BN_rand(BIGNUM *rnd, int bits, int top,int bottom);
 		// int     BN_pseudo_rand(BIGNUM *rnd, int bits, int top,int bottom);
 		// int	BN_rand_range(BIGNUM *rnd, BIGNUM *range);
@@ -398,14 +412,11 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 	else
 	{
 		/* 3. H2(f||bsn) -> r'   : */
-		buf = BN_bn2hex( TpmJoinSession->f );
-		buf_len = strlen( buf );
+		buf = bi_2_nbin( &buf_len, TpmJoinSession->f );
 		rv = EVP_DigestUpdate_ex( &mdctx, buf, buf_len );
 		OPENSSL_free( buf );
 		if ( !rv )
-		{
 			goto err;
-		}
 
 		rv = EVP_DigestUpdate( &mdctx, VerifierBaseName, VerifierBaseNameLength );
 		if ( !rv )
@@ -422,11 +433,16 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 
 	/* 4. Zq -> v   (vr')*B -> D'   : */
 	v = bi_new_ptr();
+	if ( v == NULL )
+		goto err;
 	bi_urandom( v, EC_GROUP_get_degree(group) );
 	bi_mod( v, v, module);
 
 	// 5. r'，D' -> HOST   :// ?
 	mul = bi_new_ptr();
+	if ( mul == NULL )
+		goto err;
+
 	bi_mul( mul, v, r_prime );
 
 	*DPrime = bi_2_nbin( DPrimeLength, mul);
