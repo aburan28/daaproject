@@ -25,8 +25,16 @@ typedef EC_POINT ECC_POINT;
 
 
 //TODO  define const length
-#define NONCE_LENGTH 20
+#define NONCE_LENGTH 160
 #define DAASEED 0x1234
+
+#ifndef DAA_PARAM_MESSAGE_DIGEST_ALGORITHM
+#define DAA_PARAM_MESSAGE_DIGEST_ALGORITHM "SHA1"
+#endif
+
+#ifndef DAA_HASH_SHA1_LENGTH
+#define DAA_HASH_SHA1_LENGTH   		   20
+#endif
 
 // define length end
 
@@ -122,6 +130,7 @@ typedef struct tdCredential
 typedef struct tdTPMSession
 {
     bi_ptr f;
+    EC_POINT *B;
 
 }TSS_DAA_TPM_JOIN_SESSION;
 
