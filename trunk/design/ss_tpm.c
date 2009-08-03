@@ -14,92 +14,85 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
                                     TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession,
                                     ) //TODO change to BYTE *
 {
-	bi_ptr   u = NULL , fn = NULL , cn = NULL ,s = NULL , TEMP = NULL;
-	EC_GROUP *group = NULL;
+	bi_ptr   u = NULL , f = NULL , c = NULL ,s = NULL , module = NULL, temp = NULL;
 	EC_POINT *U = NULL, *F = NULL;
+
+	BYTE     *buf = NULL , str[DAA_HASH_SHA1_LENGTH] , hash[DAA_HASH_SHA1_LENGTH];
 	BYTE     exp[] = { 0x01 };
-	BYTE     *temp = NULL , *str = NULL , *f = NULL , *c = NULL;
-	UINT32   DaaSeed ;
-	int      strlen , flen, rv, e_size = 1;
-
-	u  = bi_new_ptr();
-	fn = bi_new_ptr();
-	cn = bi_new_ptr();
-	s  =  bi_new_ptr();
-	TEMP = bi_new_ptr();
-
-	group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
-
-	U = EC_POINT_new(group);
-	F = EC_POINT_new(group);
-
-	ctx = BN_CTX_new();
-
-	bi_urandom( u, NONCE_LENGTH );  		            //Zq -> u
+	UINT32   DaaSeed, buf_len, str_len, hash_len;
+	int      rv, e_size = 1;
 
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
 
-	EVP_MD_CTX_init(&mdctx);
+	/* Get group module p */
+	module = bi_new_ptr();
+	if ( module == NULL )
+		return 0;
+	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); // TODO add check
 
+	/* 1. Zq -> u */
+	u  = bi_new_ptr();
+	bi_urandom( u, NONCE_LENGTH );
+	bi_mod( u, u, module );
+
+
+	EVP_MD_CTX_init(&mdctx);
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 	if (!digest)
-		goto err;			//return either an EVP_MD structure or NULL if an error occurs.
-
+		goto err;
+	/* Return either an EVP_MD structure or NULL if an error occurs. */
 	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );			//  initialization the ||
 	if (!rv)
 		goto err;
 
 	/* 1: 1||X||Y||nI -> str */
-
 	rv = EVP_DigestUpdate(&mdctx,  exp , e_size );			//  1
 	if (!rv)
 		goto err;
 
-	temp = BN_bn2hex ( &(IssuerPK->CapitalX->X) );
-	rv = EVP_DigestUpdate(&mdctx,  temp , strlen( temp ) ); 	//  x.x
-	OPENSSL_free( temp );
+	buf = bi_2_nbin ( &buf_len, &(IssuerPK->CapitalX->X) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  x.x
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
-	temp = BN_bn2hex ( &(IssuerPK->CapitalX->Y) );
-	rv = EVP_DigestUpdate(&mdctx,  temp , strlen( temp ) );	//  x.y
-	OPENSSL_free( temp );
+	buf = bi_2_nbin ( &buf_len, &(IssuerPK->CapitalX->Y) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//  x.y
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
-	temp = BN_bn2hex ( &(IssuerPK->CapitalY->X) );
-	rv = EVP_DigestUpdate(&mdctx,  temp , strlen( temp ) );	//  y.x
-	OPENSSL_free( temp );
+	buf = bi_2_nbin ( &buf_len, &(IssuerPK->CapitalY->X) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//  y.x
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
-	temp = BN_bn2hex ( &(IssuerPK->CapitalY->Y) );
-	rv = EVP_DigestUpdate(&mdctx,  temp , strlen( temp ) );	//  y.y
-	OPENSSL_free( temp );
+	buf = bi_2_nbin ( &buf_len, &(IssuerPK->CapitalY->Y) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//  y.y
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
+	// TODO DECRYPT NI
 	rv = EVP_DigestUpdate(&mdctx,  EncryptedNonceOfIssuer , EncryptedNonceOfIssuerLength );	//	nI
-	OPENSSL_free( temp );									// I make a mistake here now is fixed
-	if (!rv)												// here ni come from issuer
-		goto err;
-
-
-	str = OPENSSL_malloc( DAA_HASH_SHA1_LENGTH );
-	rv = EVP_DigestFinal_ex(&mdctx, str, &strlen );            	// put Final to str
 	if (!rv)
 		goto err;
 
-															// 2:  H1(0||DaaSeed||Kk) -> f
+	rv = EVP_DigestFinal_ex(&mdctx, str, &str_len );
+	if (!rv)
+		goto err;
+
+	/* 2:  H1(0||DaaSeed||Kk) -> f */
 	exp[0] =  0x00 ;
 	rv = EVP_DigestUpdate(&mdctx,  exp , e_size );
 	if (!rv)
 		goto err;
 
 	DaaSeed = DAASEED;
-	temp = (BYTE *) &DaaSeed;							// DaaSeed and kk
-	rv = EVP_DigestUpdate(&mdctx, temp, sizeof( DaaSeed ) );
+	buf = (BYTE *) &DaaSeed;							// DaaSeed and kk
+	rv = EVP_DigestUpdate(&mdctx, buf, sizeof( DaaSeed ) );
 	if (!rv)
 		goto err;
 
@@ -107,100 +100,131 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if (!rv)
 		goto err;
 
-	f = OPENSSL_malloc( DAA_HASH_SHA1_LENGTH );
-	rv = EVP_DigestFinal_ex(&mdctx, f, &flen );				// put Final to f
+	rv = EVP_DigestFinal_ex(&mdctx, hash, &hash_len );				// put Final to f
 	if (!rv)
 		goto err;
-														    // 3:  u*P1 -> U   f*P1 -> F
 
-	fn = BN_bin2bn(f, flen, NULL);	// change BYTE* f to bi_ptr fn
+	f = bi_set_as_nbin( &hash_len, hash );
+	if ( f == NULL )
+		goto err;
 
-	EC_POINT_mul(group, U, NULL, IssuerPK->Eccparmeter.CapitalP1 , u, ctx);	// mul the F
-	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , fn, ctx); // mul the U
+	/* 3:  u*P1 -> U   f*P1 -> F */
+
+	/* u mul P1 and assign to  U */
+
+	U = EC_POINT_new( group );
+	F = EC_POINT_new( group );
+	if ( U == NULL || F == NULL)
+		goto err;
+
+	EC_POINT_mul(group, U, NULL, IssuerPK->Eccparmeter.CapitalP1 , u, ctx);
+	/* f mul P1 and assign to  F */
+	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , fn, ctx);
 
 																			// 4:  H1(str||F||U) -> c   :// EVP_Digst_Final
-	rv = EVP_DigestUpdate(&mdctx,  str , strlen );     // str release
+	rv = EVP_DigestUpdate(&mdctx,  str , str_len );     // str release
 	if (!rv)
 		goto err;
 
-	temp = BN_bn2hex ( &(F.X) );
-	rv = EVP_DigestUpdate(&mdctx,  temp , strlen( temp ) );	//  F.x
-	OPENSSL_free( temp );
+	buf = bi_2_nbin ( &buf_len, &( F->X ) );
+	rv = EVP_DigestUpdate(&mdctx,  buf, buf_len );	//  F.x
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
-	temp = BN_bn2hex ( &(F.Y) );
-	rv = EVP_DigestUpdate(&mdctx,  temp , strlen( temp ) );	//  F.y
-	OPENSSL_free( temp );
+	buf = bi_2_nbin ( &buf_len, &(F->Y) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//  F.y
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
-	temp = BN_bn2hex ( &(U.X) );
-	rv = EVP_DigestUpdate(&mdctx,  temp , strlen( temp ) );	//  U.x
-	OPENSSL_free( temp );
+	buf = bi_2_nbin ( &buf_len, &(U->X) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//  U.x
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
-	temp = BN_bn2hex ( &(U.Y) );
-	rv = EVP_DigestUpdate(&mdctx,  temp , strlen( temp ) );	//  U.y
-	OPENSSL_free( temp );
+	buf = bi_2_nbin ( &buf_len, &(U->Y) );
+	rv = EVP_DigestUpdate(&mdctx,  buf, buf_len );	//  U.y
+	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
-	c = OPENSSL_malloc( DAA_HASH_SHA1_LENGTH );
-	rv = EVP_DigestFinal_ex(&mdctx, c, NULL);	 			// out final to c
+	rv = EVP_DigestFinal_ex(&mdctx, hash, &hash_len);
+	if ( !rv )
+		goto err;
 
-	cn = BN_bin2bn(c, EVP_DigestFinal_OUT_SIZE, NULL);	// change BYTE* c to bi_ptr cn
+	/* change BYTE* c to bi_ptr cn */
+	c = bi_set_as_nbin( hash_len, hash );
+	if ( c == NULL )
+		goto err;
 
-		// 5: u+c*f (mod q) -> s
+	/* 5: u+c*f (mod q) -> s */
 
-	bi_mul(TEMP, c, f);
-	bi_add(s, u, TEMP);
-	bi_mod(s, s, q); 				// u+c*f (mod q) == (u+c*f) (mod q)
-									// or            == ( c*f(mod q)+u ) (mod q)?
+	temp = bi_new_ptr();
+	if ( temp == NULL )
+		goto err;
 
-		// 6:  (F，c，s) -> comm.
-	rv = EC_POINT_copy(IssuerJoinSession.CapitalF , F);
-	IssuerJoinSession.ch = cn;
-	IssuerJoinSession.s  = s ;
+	s  =  bi_new_ptr();
+	if ( s == NULL )
+		goto err;
 
-	//
+	bi_mul( temp, c, f );
+	bi_add( s, u, temp );
+	bi_mod( s, s, module );
 
-	bi_free(u);
-	bi_free(fn);
-	bi_free(cn);
-	bi_free(s);
-	bi_free(TEMP);
+	/* 6:  (F，c，s) -> comm. */
+	rv = EC_POINT_copy(IssuerJoinSession->CapitalF , F);
+	if ( !rv )
+		goto err;
+
+	if ( IssuerJoinSession->ch == NULL )
+	{
+		IssuerJoinSession->ch = bi_new_ptr();
+	}
+	bi_set( IssuerJoinSession->ch ,c );
+
+
+	if ( IssuerJoinSession->s == NULL )
+	{
+		IssuerJoinSession->s = bi_new_ptr();
+	}
+	bi_set( IssuerJoinSession->s, s);
+
+	bi_free_ptr( module );
+	bi_free_ptr( u );
+	bi_free_ptr( f );
+	bi_free_ptr( c );
+	bi_free_ptr( s );
+	bi_free_ptr( temp );
 
 	EC_POINT_free(U);
 	EC_POINT_free(F);
-	//BN_CTX_free(ctx);
+
 	EVP_MD_CTX_cleanup(&mdctx);
-	if (!str) OPENSSL_free(str);
-	if (!f) OPENSSL_free(f);
-	if (!c) OPENSSL_free(c);
-	if (!fn) BN_free(fn);
-	if (!cn) BN_free(cn);
 
 	return 1;
 
 err:
-	bi_free(u);
-	bi_free(fn);
-	bi_free(cn);
-	bi_free(s);
-	bi_free(TEMP);
+	if ( module )
+		bi_free_ptr( module );
+	if ( u )
+		bi_free_ptr( u );
+	if ( f )
+		bi_free_ptr( f );
+	if ( c )
+		bi_free_ptr( c );
+	if ( s )
+		bi_free_ptr( s );
+	if ( temp )
+		bi_free_ptr( temp );
 
-	EC_POINT_free(U);
-	EC_POINT_free(F);
+	if ( U )
+		EC_POINT_free(U);
+	if ( F )
+		EC_POINT_free(F);
+
 	EVP_MD_CTX_cleanup(&mdctx);
-
-	if (!str) OPENSSL_free(str);
-	if (!f) OPENSSL_free(f);
-	if (!c) OPENSSL_free(c);
-
-	if (!fn) BN_free(fn);
-	if (!cn) BN_free(cn);
 
 	return 0;
 }
@@ -387,6 +411,12 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 	if ( *RPrimeLength <= 0 )
 		goto err;
 
+	if ( TpmJoinSession == NULL )
+		TpmJoinSession->v = bi_new_ptr();
+
+	if ( !bi_set( TpmJoinSession->v, v))
+		goto err;
+
 	bi_free_ptr( module );
 	bi_free_ptr( r_prime );
 	bi_free_ptr( v );
@@ -411,7 +441,11 @@ err:
 	return 0;
 }
 
-int TSS_DAA_SIGN_tpm_sign(BYTE *  ChPrime,
+int TSS_DAA_SIGN_tpm_sign(
+		                  TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
+						  BYTE *  Msg,
+						  BYTE *  MsgLength,
+		                  BYTE *  ChPrime,
                           UINT32  ChPrimeLength,
                           BYTE **  Noncetpm,
                           UINT32 * NoncetpmLength,
@@ -420,17 +454,26 @@ int TSS_DAA_SIGN_tpm_sign(BYTE *  ChPrime,
                           BYTE **  S,
 						  UINT32 * SLength)
 {
-	bi_ptr nt = NULL;
-	BYTE *buf = NULL, hash[DAA_HASH_SHA1_LENGTH + 1];
-	UINT32 buf_len, hash_len;
-	int rv;
+	bi_ptr nt = NULL, c = NULL, mul = NULL, module = NULL;
+	BYTE   hash[DAA_HASH_SHA1_LENGTH + 1];
+	UINT32 hash_len;
+	int    rv;
 
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
 
+	/* Get group module p */
+	module = bi_new_ptr();
+	if ( module == NULL )
+		return 0;
+	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+
 	/* 1. {0，1}t -> nT   : */
 	nt = bi_new_ptr();
+	if ( nt == NULL )
+		goto err;
 	bi_urandom( nt, NONCE_LENGTH);
+
 	*Noncetpm = bi_2_nbin( NoncetpmLength , nt);
 	if ( *NoncetpmLength <= 0 )
 		goto err;
@@ -453,10 +496,57 @@ int TSS_DAA_SIGN_tpm_sign(BYTE *  ChPrime,
 	if ( !rv )
 		goto err;
 
-	rv = EVP_DigestUpdate( &mdctx, *Noncetpm, *NoncetpmLength );
+	rv = EVP_DigestUpdate( &mdctx, Msg, MsgLength );
 	if ( !rv )
 		goto err;
-	// TODO 3. v+c*f(mod q) -> s   ://bi_mul，bi_add，bi_mod
+
+	rv = EVP_DigestFinal_ex(&mdctx, hash, &hash_len);
+	if ( hash_len != DAA_HASH_SHA1_LENGTH )
+		goto err;
+
+	ChLength = sizeof( BYTE ) * DAA_HASH_SHA1_LENGTH;
+	*Ch = ( BYTE * )malloc( ChLength );
+	if ( Ch = NULL )
+		goto err;
+
+	for ( i = 0; i< DAA_HASH_SHA1_LENGTH; i++ )
+		*( Ch + i) = hash[i];
+
+	// 3. v+c*f(mod q) -> s   ://bi_mul，bi_add，bi_mod
+	c = bi_set_as_nbin( ChLength, *Ch);
+	mul = bi_new_ptr();
+	if ( mul == NULL || c == NULL )
+		goto err;
+
+	bi_mul( mul, c, TpmJoinSession->f);
+	bi_add( mul, mul, TpmJoinSession->v );
+	bi_mod( mul, mul, module);
+
+	*S = bi_2_nbin( SLength, mul );
+	if ( *SLength <= 0 )
+		goto err;
+
+	bi_free_ptr( module );
+	bi_free_ptr( nt );
+	bi_free_ptr( c );
+	bi_free_ptr( mul );
+
+	EVP_MD_CTX_cleanup(&mdctx);
+
+	return 1;
+err:
+	if( module )
+		bi_free_ptr( module );
+	if ( nt )
+		bi_free_ptr( nt );
+	if ( c )
+		bi_free_ptr( c );
+	if ( mul )
+		bi_free_ptr( mul );
+
+	EVP_MD_CTX_cleanup(&mdctx);
+
+	return 0;
 
 	// TODO 4. (c，s，nT) -> HOST   :// ?
 
