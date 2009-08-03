@@ -7,10 +7,11 @@
 #define SS_VERIFIER_H
 #include "daa.h"
 
+#define BASENAME "ISLAB"
+
 int TSS_DAA_JOIN_verifier_init(BYTE **  VerifierBasename,
                                UINT32 * VerifierBasenameLength,
-                               BYTE **  NonceVerifier,
-                               UINT32 * NonceVerifierLength);
+                               bi_ptr   NonceVerifier);
 
 int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 							     TSS_DAA_ISSUER_PK  *   IssuerPK,

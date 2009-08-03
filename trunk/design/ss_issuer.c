@@ -27,9 +27,12 @@ int TSS_DAA_JOIN_issuer_setup(
 	bi_ptr x = NULL , y = NULL;
 	EC_POINT *P1 = NULL , *P2 = NULL , X = NULL , Y = NULL , XP = NULL , YP = NULL;
 	int ret;
+	BN_CTX *ctx = NULL;
 
 	x = bi_new_ptr();
 	y = bi_new_ptr();
+
+	ctx = BN_CTX_new();
 
 	if (!group)
 		group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
@@ -89,6 +92,7 @@ int TSS_DAA_JOIN_issuer_setup(
 	ret = EC_POINT_copy( IssuerProof->CapitalYPrime , YP);
 	if (!ret) goto err;
 
+	BN_CTX_free(ctx);
 	if ( x ) bi_free(x);
 	if ( y ) bi_free(y);
 	EC_POINT_free(X);
@@ -100,6 +104,7 @@ int TSS_DAA_JOIN_issuer_setup(
 
 	return 1;
 err:
+	BN_CTX_free(ctx);
 	bi_free(x);
 	bi_free(y);
 	EC_POINT_free(X);
@@ -139,7 +144,7 @@ int TSS_DAA_JOIN_issuer_init(
 
 	rsa = RSA_new();
 
-	eni_st = OPENSSL_malloc(( RSA_MODLE_LENGTH / 8 + 1) * sizeof(BYTE));					   //built the final commreq {RSA_MODLE_LENGTH=2048}
+	eni_st = OPENSSL_malloc(( RSA_MODLE_LENGTH / 8 + 1) );					   //built the final commreq {RSA_MODLE_LENGTH=2048}
 
 	hex_ni = bi_2_hex_char( ni );
 	hex_ni_len = strlen( hex_ni );             //   	change ni to hex_ni
@@ -203,10 +208,10 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 		group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
 	ctx = BN_CTX_new();
 
-	aenc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) * sizeof(BYTE));
-	benc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) * sizeof(BYTE));
-	cenc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) * sizeof(BYTE));
-	(*EncyptedCred) = OPENSSL_malloc(( RSA_BYTES_LEN * 3 +1) * sizeof(BYTE));
+	aenc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) );
+	benc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) );
+	cenc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) );
+	(*EncyptedCred) = OPENSSL_malloc(( RSA_BYTES_LEN * 3 +1) );
 
 	r = bi_new_ptr();
 	xy = bi_new_ptr();
