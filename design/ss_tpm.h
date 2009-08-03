@@ -31,12 +31,12 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
                           BYTE **  DPrime,
                           UINT32 * DPrimeLength);
 
-int TSS_DAA_SIGN_tpm_sing(BYTE *  ChPrime,
-                          UINT32  ChPrimelength,
+int TSS_DAA_SIGN_tpm_sign(BYTE *  ChPrime,
+                          UINT32  ChPrimeLength,
                           BYTE **  Noncetpm,
-                          UINT32 * Noncetpmlength,
+                          UINT32 * NoncetpmLength,
                           BYTE **  Ch,
-                          UINT32 * Chlength,
+                          UINT32 * ChLength,
                           BYTE **  S,
 						  UINT32 * SLength);
 #endif

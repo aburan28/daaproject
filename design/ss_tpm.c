@@ -411,19 +411,51 @@ err:
 	return 0;
 }
 
-int TSS_DAA_SIGN_tpm_sing(BYTE *  ChPrime,
-                          UINT32  ChPrimelength,
+int TSS_DAA_SIGN_tpm_sign(BYTE *  ChPrime,
+                          UINT32  ChPrimeLength,
                           BYTE **  Noncetpm,
-                          UINT32 * Noncetpmlength,
+                          UINT32 * NoncetpmLength,
                           BYTE **  Ch,
-                          UINT32 * Chlength,
+                          UINT32 * ChLength,
                           BYTE **  S,
 						  UINT32 * SLength)
 {
-	// TODO 1. {0，1}t -> nT   :// bi_random
+	bi_ptr nt = NULL;
+	BYTE *buf = NULL, hash[DAA_HASH_SHA1_LENGTH + 1];
+	UINT32 buf_len, hash_len;
+	int rv;
 
-	// TODO 2. H4(c’||nT||msg) -> c   :// EVP_Digest_Final
+	EVP_MD *digest = NULL;
+	EVP_MD_CTX mdctx;
 
+	/* 1. {0，1}t -> nT   : */
+	nt = bi_new_ptr();
+	bi_urandom( nt, NONCE_LENGTH);
+	*Noncetpm = bi_2_nbin( NoncetpmLength , nt);
+	if ( *NoncetpmLength <= 0 )
+		goto err;
+
+	/* 2. H4(c’||nT||msg) -> c   : */
+	/* return either an EVP_MD structure or NULL if an error occurs. */
+	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
+	if ( !digest )
+		return 0;
+
+	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );			//  initialization the ||
+	if (!rv)
+		goto err;
+
+	rv = EVP_DigestUpdate( &mdctx, ChPrime, ChPrimeLength );
+	if ( !rv )
+		goto err;
+
+	rv = EVP_DigestUpdate( &mdctx, *Noncetpm, *NoncetpmLength );
+	if ( !rv )
+		goto err;
+
+	rv = EVP_DigestUpdate( &mdctx, *Noncetpm, *NoncetpmLength );
+	if ( !rv )
+		goto err;
 	// TODO 3. v+c*f(mod q) -> s   ://bi_mul，bi_add，bi_mod
 
 	// TODO 4. (c，s，nT) -> HOST   :// ?
