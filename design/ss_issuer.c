@@ -49,25 +49,27 @@ int TSS_DAA_JOIN_issuer_setup(
 	Y = EC_POINT_new(group);
 
 
-// random x,y;
+	// random x,y;
 	bi_urandom( x, NONCE_LENGTH );
 	bi_urandom( y, NONCE_LENGTH );
 
-//TODO set P1 P2
-// X=x*P2 Y=y*P2
+	//TODO set P1 P2
+	// X=x*P2 Y=y*P2
 	ret = EC_POINT_mul(group, X, NULL, P2 , x, ctx);	// mul the x*P2 = X
 	if (!ret) goto err;
 	ret = EC_POINT_mul(group, Y, NULL, P2 , y, ctx);	// mul the y*P2 = Y
 	if (!ret) goto err;
 
-// XP=x*P1 YP=y*P1
+	// XP=x*P1 YP=y*P1
 	ret = EC_POINT_mul(group, XP, NULL, P1 , x, ctx);	// mul the x*P1 = XP
 	if (!ret) goto err;
 	ret = EC_POINT_mul(group, YP, NULL, P1 , y, ctx);	// mul the y*P1 = YP
 	if (!ret) goto err;
 
-// Here is the list maybe make in future developing
-// IPK Kk
+	// Here is the list maybe make in future developing
+	// IPK Kk
+
+	// set in the key
 	IssuerKey->IssuerSK.x = x;
 	IssuerKey->IssuerSK.y = y;
 
@@ -137,7 +139,7 @@ int TSS_DAA_JOIN_issuer_init(
 
 	rsa = RSA_new();
 
-	eni_st = malloc(( RSA_MODLE_LENGTH / 8 + 1) * sizeof(BYTE));					   //built the final commreq {RSA_MODLE_LENGTH=2048}
+	eni_st = OPENSSL_malloc(( RSA_MODLE_LENGTH / 8 + 1) * sizeof(BYTE));					   //built the final commreq {RSA_MODLE_LENGTH=2048}
 
 	hex_ni = bi_2_hex_char( ni );
 	hex_ni_len = strlen( hex_ni );             //   	change ni to hex_ni
@@ -187,7 +189,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	EC_POINT *SP1 = NULL , *CF = NULL , *UP = NULL , *A = NULL , *B = NULL , *C = NULL , *XA = NULL , *RXYF = NULL;
 	bi_ptr r = NULL , xy = NULL , rxy = NULL;
 	char *ahex = NULL, *bhex = NULL, *chex = NULL , *aenc = NULL , *benc = NULL , *cenc = NULL;
-	int ret , HEX_LENGTH, e_size = 3;
+	int i , ret , HEX_LENGTH , e_size = 3 , RSA_BYTES_LEN = RSA_MODLE_LENGTH / 8;
 	RSA *rsa = NULL;
 	unsigned char exp[] = { 0x01, 0x00, 0x01 };
 
@@ -200,6 +202,11 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	if (!group)
 		group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
 	ctx = BN_CTX_new();
+
+	aenc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) * sizeof(BYTE));
+	benc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) * sizeof(BYTE));
+	cenc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) * sizeof(BYTE));
+	(*EncyptedCred) = OPENSSL_malloc(( RSA_BYTES_LEN * 3 +1) * sizeof(BYTE));
 
 	r = bi_new_ptr();
 	xy = bi_new_ptr();
@@ -267,14 +274,40 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	if ( !chex ) goto err;
 																	//  here len(ahex)==len(abex)==len(chenx)?
 	HEX_LENGTH = strlen(ahex);
-	cre = OPENSSL_malloc(sizeof(BYTE) * HEX_LENGTH * 3 );
-	if ( !cre ) goto err;
 
-	cre[0] = '\0';
-	cre = strncat(cre , ahex , HEX_LENGTH);
-	cre = strncat(cre , bhex , HEX_LENGTH);
-	cre = strncat(cre , chex , HEX_LENGTH);
+	*EncyptedCred[0] = 0x00;
+	// encrypt ahex in aenc and put in EncyptedCred
+	rv = RSA_public_encrypt( HEX_LENGTH, ahex , aenc , rsa , RSA_NO_PADDING);
+	if (rv == -1)
+		goto err;
+	for (i=1;i<=RSA_BYTES_LEN;i++)
+	{
+		if ( ( i+rv ) > RSA_BYTES_LEN ) *EncyptedCred[i] = aenc[ ( i+rv ) - RSA_BYTES_LEN ];
+		else
+			*EncyptedCred[i] = 0;
+	}
+	// encrypt bhex in benc and put in EncyptedCred
+	rv = RSA_public_encrypt( HEX_LENGTH, bhex , benc , rsa , RSA_NO_PADDING);
+	if (rv == -1)
+		goto err;
+	for (i=1;i<=RSA_BYTES_LEN;i++)
+	{
+		if ( ( i+rv ) > RSA_BYTES_LEN ) *EncyptedCred[i + RSA_BYTES_LEN] = aenc[ ( i+rv ) - RSA_BYTES_LEN ];
+		else
+			*EncyptedCred[i + RSA_BYTES_LEN] = 0;
+	}
+	// encrypt chex in cenc and put in EncyptedCred
+	rv = RSA_public_encrypt( HEX_LENGTH, bhex , cenc , rsa , RSA_NO_PADDING);
+	if (rv == -1)
+		goto err;
+	for (i=1;i<=RSA_BYTES_LEN;i++)
+	{
+		if ( ( i+rv ) > RSA_BYTES_LEN ) *EncyptedCred[i + RSA_BYTES_LEN*2 ] = aenc[ ( i+rv ) - RSA_BYTES_LEN ];
+		else
+			*EncyptedCred[i + RSA_BYTES_LEN*2 ] = 0;
+	}
 
+	*EncyptedCredLength = RSA_BYTES_LEN * 3;
 
 	BN_CTX_free(ctx);
 	bi_free(r);
@@ -292,7 +325,9 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	if ( ahex ) OPENSSL_free(ahex);
 	if ( bhex ) OPENSSL_free(bhex);
 	if ( chex ) OPENSSL_free(chex);
-	if ( (*EncyptedCred) ) OPENSSL_free((*EncyptedCred));
+	if ( aenc ) OPENSSL_free(aenc);
+	if ( benc ) OPENSSL_free(benc);
+	if ( cenc ) OPENSSL_free(cenc);
 
 	if (rsa) RSA_free(rsa);
 
@@ -316,6 +351,11 @@ err:
 	if ( ahex ) OPENSSL_free(ahex);
 	if ( bhex ) OPENSSL_free(bhex);
 	if ( chex ) OPENSSL_free(chex);
+	if ( aenc ) OPENSSL_free(aenc);
+	if ( benc ) OPENSSL_free(benc);
+	if ( cenc ) OPENSSL_free(cenc);
+	if ( (*EncyptedCred) ) OPENSSL_free((*EncyptedCred));
+
 
 	return 0;
 }
