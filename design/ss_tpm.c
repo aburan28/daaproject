@@ -97,6 +97,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if ( !ret )
 	{
 		OPENSSL_free( buf );
+
 		goto err;
 	}
 
