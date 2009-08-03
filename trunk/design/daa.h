@@ -24,7 +24,7 @@
 typedef EC_POINT ECC_POINT;
 
 
-//TODO  define const length
+// define const length
 #define NONCE_LENGTH 160
 #define DAASEED 0x1234
 
@@ -39,6 +39,7 @@ typedef EC_POINT ECC_POINT;
 #define DAA_SIGN_MESSAGE "whuislab"
 
 // define length end
+
 /* declare the gloable ECC group */
 EC_GROUP *group;
 
