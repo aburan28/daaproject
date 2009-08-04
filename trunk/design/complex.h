@@ -31,6 +31,7 @@ typedef struct complex_st{
 }COMPLEX;
 
 void COMP_init( COMPLEX *a );
+COMPLEX *COMP_new( void );
 void COMP_free( COMPLEX *a );
 int COMP_is_zero( COMPLEX *a );
 int COMP_set(COMPLEX *a, BIGNUM *x, BIGNUM *y, BIGNUM *m);

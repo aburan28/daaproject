@@ -12,6 +12,19 @@ void COMP_init( COMPLEX *a )
 	BN_init( &a->y );
 }
 
+COMPLEX *COMP_new( void )
+{
+	COMPLEX * ret;
+
+	ret = ( COMPLEX * )OPENSSL_malloc( sizeof( COMPLEX ) );
+	if ( !ret )
+		return NULL;
+
+	COMP_init( ret );
+
+	return ret;
+}
+
 void COMP_free( COMPLEX *a )
 {
 	if ( a == NULL )
