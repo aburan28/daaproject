@@ -14,13 +14,18 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,
                                        UINT32 CapitalElength,
                                        BYTE * CredentialBytes,
                                        UINT32 CredentialBytesLength,
+                                       TSS_DAA_ISSUER_PK  * IssuerPK,
+                                       TSS_DAA_CREDENTIAL2 *DaaCredential,
                                        TSS_DAA_HOST_JOIN_SESSION * HostJoinSession);
 
-int TSS_DAA_SIGN_host_sign(BYTE * RPrime,
-                           UINT32 RPrimeLength,
-                           BYTE * DPrime,
-                           UINT32 DPrimeLEgnth,
-                           BYTE * NonceVerifier,
-                           UINT32 NonceVerifierLength,
-                           TSS_DAA_SIGNNATURE *   DaaSignature);
+int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
+                           UINT32 RPrimeLength,                         // in
+                           BYTE * DPrime,                               // in
+                           UINT32 DPrimeLEgnth,                         // in
+                           BYTE * NonceVerifier,                        // in
+                           UINT32 NonceVerifierLength,                  // in
+                           TSS_DAA_CREDENTIAL2 *DaaCredential,          // in
+                           TSS_DAA_HOST_JOIN_SESSION * HostJoinSession, // in
+                           TSS_DAA_SIGNNATURE *   DaaSignature          // out
+                           );
 #endif

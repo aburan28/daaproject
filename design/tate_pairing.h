@@ -228,7 +228,7 @@ int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL pre
 // ecap(.) function
 //
 
-int  ecap(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, COMPLEX *res)
+int  Tate(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, COMPLEX *res)
 {
     BIGNUM  Qx;
     COMPLEX Qy;
@@ -422,7 +422,7 @@ int main()
     for (int times=0;times<2;times++)
     {
 
-        Ok=ecap(Ppub,Qid,q,precomp,store,gid);
+        Ok=Tate(Ppub,Qid,q,precomp,store,gid);
         if (!Ok)
         {  /* Ppub is not of order q ! */
             cout << "Bad Parameters" << endl;

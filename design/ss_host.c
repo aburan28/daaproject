@@ -11,44 +11,298 @@
 
 //int TSS_DAA_JOIN_host_credential_request();
 
-int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,
-                                       UINT32 CapitalElength,
-                                       BYTE * CredentialBytes,
-                                       UINT32 CredentialBytesLength,
-                                       TSS_DAA_HOST_JOIN_SESSION * HostJoinSession)
+int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                             // in
+                                       UINT32 CapitalElength,                       // in
+                                       BYTE * CredentialBytes,                      // in
+                                       UINT32 CredentialBytesLength,                // in
+                                       TSS_DAA_ISSUER_PK  * IssuerPK,               // in
+                                       TSS_DAA_CREDENTIAL2 *DaaCredential,          // out
+                                       TSS_DAA_HOST_JOIN_SESSION * HostJoinSession) // out
 {
-	//TODO 1. t(A，X) ->ρa   :// ?
+	EC_POINT *point = NULL;
+	COMPLEX *complex = NULL, *complex2 = NULL;
+	bi_ptr module = NULL;
+	BIGNUM store[500];
+	UINT32 field_len, len;
+	int ret, precomp;
 
-	//TODO 2. t(B，X) -> ρb   :// ?
+	/* Get group module p */
+	module = bi_new_ptr();
+	if ( module == NULL )
+		return 0;
+	ret = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+	if ( !ret )
+		goto err;
 
-	//TODO 3. t(C，P2) -> ρc   :// ?
+	field_len = (EC_GROUP_get_degree(group) + 7) / 8;
+	if ( field_len <= 0 )
+		goto err;
+	len = 2 * field_len + 1;
 
-	//TODO 4. check t(A，Y) == t(B，P2) || t(A+E，X) ==ρc   :// ?
+	point = EC_POINT_new( group );
+	ret = EC_POINT_oct2point( group, point, CredentialBytes, len, Context);
+	if (!EC_POINT_copy( &(DaaCredential->CapitalA), point ))
+		goto err;
 
+	ret = EC_POINT_oct2point( group, point, (CredentialBytes + len) , len, Context);
+	if (!EC_POINT_copy( &(DaaCredential->CapitalB), point ))
+		goto err;
 
+	ret = EC_POINT_oct2point( group, point, ( CredentialBytes + len * 2 ), len, Context);
+	if (!EC_POINT_copy( &(DaaCredential->CapitalC), point ))
+		goto err;
 
+	// 1. t(A，X) ->ρa   :// ?Tate(Ppub,Qid,q,precomp,store,gid);
+
+	if ( HostJoinSession->Roa == NULL || HostJoinSession->Rob == NULL || HostJoinSession->Roc == NULL)
+		goto err;
+
+	precomp = 0;
+	COMP_init( complex );
+
+	ret = Tate( &(DaaCredential->CapitalA), IssuerPK->CapitalX, module, precomp, store, complex);
+	if ( !ret )
+		goto err;
+
+	ret = COMP_copy( HostJoinSession->Roa, complex );
+	if ( !ret )
+		goto err;
+
+	// 2. t(B，X) -> ρb   :// ?
+	ret = Tate( &(DaaCredential->CapitalB), IssuerPK->CapitalX, module, precomp, store, complex);
+	if ( !ret )
+		goto err;
+
+	ret = COMP_copy( HostJoinSession->Rob, complex );
+	if ( !ret )
+		goto err;
+
+	// 3. t(C，P2) -> ρc   :// ?
+	if ( IssuerPK->Eccparmeter.CapitalP2 == NULL )
+		goto err;
+	ret = Tate( &(DaaCredential->CapitalC), IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex);
+	if ( !ret )
+		goto err;
+
+	ret = COMP_copy( HostJoinSession->Roc, complex );
+	if ( !ret )
+		goto err;
+
+	// 4. check t(A，Y) == t(B，P2) || t(A+E，X) ==ρc   :// ?
+	ret = Tate( &(DaaCredential->CapitalA), IssuerPK->CapitalY, module, precomp, store, complex);
+	if ( !ret )
+		goto err;
+
+	if ( !COMP_init( complex2 ))
+		goto err;
+	ret = Tate( &(DaaCredential->CapitalB), IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex2);
+	if ( !ret )
+		goto err;
+
+	if ( COMP_cmp( complex, complex2 ) )
+	{
+		printf(" t(A, Y) != t(B, P2) \n ");
+		goto err;
+	}
+
+	ret = EC_POINT_oct2point( group, point, CapitalE , len, Context);
+	if ( !ret )
+		goto err;
+
+	ret = EC_POINT_add( point, &(DaaCredential->CapitalA, point, Context);
+	if ( !ret )
+		goto err;
+
+	ret = Tate( point, IssuerPK->CapitalX, module, precomp, store, complex);
+	if ( !ret )
+		goto err;
+
+	if ( COMP_cmp( HostJoinSession->Roc, complex) )
+	{
+		printf(" t(A + E, X) = Roc \n ");
+		goto err;
+	}
+
+	bi_free_ptr( module );
+	EC_POINT_free( point );
+	COMP_free( complex );
+	COMP_free( complex2 );
+
+	return 1;
+
+err:
+
+	bi_free_ptr( module );
+
+	if ( point )
+		EC_POINT_free( point );
+
+	if ( complex )
+		COMP_free( complex );
+
+	if (complex2 )
+		COMP_free( complex2 );
+
+	return 0;
 }
 
-int TSS_DAA_SIGN_host_sign(BYTE * RPrime,
-                           UINT32 RPrimeLength,
-                           BYTE * DPrime,
-                           UINT32 DPrimeLEgnth,
-                           BYTE * NonceVerifier,
-                           UINT32 NonceVerifierLength,
-                           TSS_DAA_SIGNNATURE *   DaaSignature)
+int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
+                           UINT32 RPrimeLength,                         // in
+                           BYTE * DPrime,                               // in
+                           UINT32 DPrimeLEgnth,                         // in
+                           BYTE * NonceVerifier,                        // in
+                           UINT32 NonceVerifierLength,                  // in
+                           TSS_DAA_CREDENTIAL2 *DaaCredential,          // in
+                           TSS_DAA_ISSUER_PK  * IssuerPK,               // in
+                           TSS_DAA_HOST_JOIN_SESSION *HostJoinSession,  // in
+                           TSS_DAA_SIGNNATURE *   DaaSignature          // out
+                           )
 {
-	//TODO 1. {0，1}t -> nv or get nv from verifier   :// bi_radom or socket
+	bi_ptr   module = NULL, nv = NULL, rprime = NULL;
+	EC_POINT *point = NULL;
+	COMPLEX  comp, *complex = &comp, Roaprime, Robprime, Rocprime;
+	BYTE     hash[DAA_HASH_SHA1_LENGTH];
+	UINT32   hash_len;
+	int      ret;
 
-	//TODO 2. r'*A k-> A'   r'*C -> C'   :// ?
+	/* Get group module p */
+	module = bi_new_ptr();
+	if ( module == NULL )
+		return 0;
+	ret = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+	if ( !ret )
+		goto err;
 
-	//TODO 3. r'*B -> B'   :// ?
+	/* 1. {0，1}t -> nv or get nv from verifier   : */
 
-	//TODO 4. ρar' -> ρa'   ρbr' -> ρb'   ρcr' ->ρc'   :// bi_mod_exp
+	/* NonceVerfier is NULL, nv is random  */
+	if ( NonceVerifier == NULL || NonceVerifierLength == 0)
+	{
+		/* Zq -> nv  */
+		nv  = bi_new_ptr();
+		if ( nv == NULL )
+			goto err;
 
-	//TODO 5. t(D'，X) -> т   r'*E -> E'   :// ?
+		bi_urandom( nv, EC_GROUP_get_degree(group) );
+		bi_mod( nv, nv, module);
+	}
+	else
+	{
+		/* Get nv from verifier */
+		nv = bi_set_as_nbin( NonceVerifierLength, NonceVerifier);
+		if ( nv == NULL )
+			goto err;
+	}
 
-	//TODO 6. H3 (ipk||bsn||A'||B'||C'||D'||E'||ρa'||ρb'||ρc'||т||nv) -> c'   :// EVP_Digest_Final
+	if ( RPrime == NULL || RPrimeLength == 0 )
+		goto err;
 
-	//TODO 7. c' -> TPM   :// ?
+	rprime = bi_set_as_nbin( RPrime, RPrimeLength );
+	if ( rprime == NULL )
+		goto err;
+
+	/* 2. r'*A -> A'   r'*C -> C'  r'*C -> B'   r'*E -> E'   : */
+
+	/* Init point */
+	point = EC_POINT_new( group );
+	if ( point == NULL )
+		goto err;
+
+	/* point = r' * A */
+	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalA, rprime, Context );
+	if ( !ret )
+		goto err;
+
+	ret = EC_POINT_copy( &(DaaSignature->CapitalAprime), point );
+	if ( !ret )
+		goto err;
+
+	/* C' = r' * C */
+	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalC, rprime, Context );
+	if ( !ret )
+		goto err;
+
+	ret = EC_POINT_copy( &(DaaSignature->CapitalCPrime), point );
+	if ( !ret )
+		goto err;
+
+	/* B' = r'*B   */
+	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalB, rprime, Context );
+	if ( !ret )
+		goto err;
+
+	ret = EC_POINT_copy( &(DaaSignature->CapitalBPrime), point );
+	if ( !ret )
+		goto err;
+
+	/* E' = r'*E   */
+	ret = EC_POINT_mul( group, point, NULL, HostJoinSession->CapitalE, rprime, Context );
+	if ( !ret )
+		goto err;
+
+	ret = EC_POINT_copy( &(DaaSignature->CapitalEPrime), point );
+	if ( !ret )
+		goto err;
+
+	/* 3. ρar' -> ρa'   ρbr' -> ρb'   ρcr' ->ρc'   : */
+	// 	TODO change EC_POINT Roa to COMPLEX;
+	COMP_init( complex );
+	COMP_init( &Roaprime );
+	COMP_init( &Robprime );
+	COMP_init( &Rocprime );
+
+	/* ρa^r' -> ρa' */
+	if ( !COMP_pow( complex, HostJoinSession->Roa, rpime ) )
+		goto err;
+
+	if ( !COMP_copy( &Roaprime, complex ) )
+		goto err;
+
+	/* ρb^r' -> ρb' */
+	if ( !COMP_pow( complex, HostJoinSession->Rob, rpime ) )
+		goto err;
+
+	if ( !COMP_copy( &Robprime, complex ) )
+		goto err;
+
+	/* ρc^r' -> ρc' */
+	if ( !COMP_pow( complex, HostJoinSession->Roc, rpime ) )
+		goto err;
+
+	if ( !COMP_copy( &Rocprime, complex ) )
+		goto err;
+
+	// 5. t(D'，X) -> т :// ?
+	ret = EC_POINT_oct2point( group, point, DPrime , DPrimeLength, Context);
+	if ( !ret )
+		goto err;
+
+	ret = Tate( point, IssuerPK->CapitalX, module, precomp, store, complex);
+	if ( !ret )
+		goto err;
+
+	// 6. H3 (ipk||bsn||A'||B'||C'||D'||E'||ρa'||ρb'||ρc'||т||nv) -> c'   :// EVP_Digest_Final
+	compute_sign_change(hash,
+						IssuerPK,
+						BSN,
+						&(DaaSignature->CapitalAPrime),
+						&(DaaSignature->CapitalBPrime),
+						&(DaaSignature->CapitalCPrime),
+						point,
+						&(DaaSignature->CapitalEPrime),
+						&Roaprime,
+						&Robprime,
+						&Rocprime,
+						complex,
+						nv
+						);
+
+	return 1;
+
+	err:
+
+	return 0;
+
+	//7. c' -> TPM   :// ?
 
 }
