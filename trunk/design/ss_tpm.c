@@ -85,8 +85,8 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if ( rsa == NULL )
 		goto err;
 	// TODO secret key of Ek and Publick key of EK
-	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);
-	rsa->d = BN_bin2bn( PlatformEndorsementSKey, PlatformEndorsementSkeyLength, rsa->d);
+	rsa->n = bi_set_as_nbin(  PlatformEndorsementPubkeyLength, PlatformEndorsementPubKey );
+	rsa->d = bi_set_as_nbin( PlatformEndorsementSkeyLength, PlatformEndorsementSKey );
     if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 
@@ -119,7 +119,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 		goto err;
 
 	DaaSeed = DAASEED;
-	buf = (BYTE *) &DaaSeed;							// DaaSeed and kk
+	buf = (BYTE *) &DaaSeed;							// DaaSeed and Kk
 	rv = EVP_DigestUpdate(&mdctx, buf, sizeof( DaaSeed ) );
 	if (!rv)
 		goto err;
@@ -139,15 +139,14 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	/* 3:  u*P1 -> U   f*P1 -> F */
 
 	/* u mul P1 and assign to  U */
-
 	U = EC_POINT_new( group );
 	F = EC_POINT_new( group );
 	if ( U == NULL || F == NULL)
 		goto err;
 
-	EC_POINT_mul(group, U, NULL, IssuerPK->Eccparmeter.CapitalP1 , u, ctx);
+	EC_POINT_mul(group, U, NULL, IssuerPK->Eccparmeter.CapitalP1 , u, Context);
 	/* f mul P1 and assign to  F */
-	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , fn, ctx);
+	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , fn, Context);
 
 																			// 4:  H1(str||F||U) -> c   :// EVP_Digst_Final
 	rv = EVP_DigestUpdate(&mdctx,  str , str_len );     // str release
@@ -300,8 +299,8 @@ int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
 
 	/* 1. Eek-1 (ε) -> cre   : */
 	// TODO secret key of Ek
-	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);
-	rsa->d = BN_bin2bn( PlatformEndorsementSKey, PlatformEndorsementSkeyLength, rsa->d);
+	rsa->n = bi_set_as_nbin(  PlatformEndorsementPubkeyLength, PlatformEndorsementPubKey );
+	rsa->d = bi_set_as_nbin( PlatformEndorsementSkeyLength, PlatformEndorsementSKey );
     if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 
@@ -330,6 +329,7 @@ int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
 
 	*CaptialELength = strlen( *CapitalE );
 
+	/* TpmJoinSession->B = B */
 	TpmJoinSession->B = EC_POINT_new( group );
 	if ( TpmJoinSession->B == NULL )
 		goto err;

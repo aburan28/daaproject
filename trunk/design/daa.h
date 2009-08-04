@@ -42,6 +42,8 @@ typedef EC_POINT ECC_POINT;
 
 #define DAA_SIGN_MESSAGE "whuislab"
 
+#define BSN "whu"
+
 // define length end
 
 /* declare the gloable ECC group */
@@ -156,13 +158,15 @@ typedef struct  tdHostJoinSession
 
 	COMPLEX *Roc;
 
+	EC_POINT *CapitalE;
+
 }TSS_DAA_HOST_JOIN_SESSION;
 
 // signature
 
 typedef struct tdSignature
 {
-	ECC_POINT CapitalAprime;
+	ECC_POINT CapitalAPrime;
 
 	ECC_POINT CapitalBPrime;
 
