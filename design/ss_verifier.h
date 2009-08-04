@@ -15,6 +15,8 @@ int TSS_DAA_JOIN_verifier_init(BYTE **  VerifierBasename,
 
 int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 							     TSS_DAA_ISSUER_PK  *   IssuerPK,
+							     BYTE **  VerifierBasename,
+							     UINT32 * VerifierBasenameLength,
 							     BYTE   * Msg,
 							     UINT32   MsgLength,
                                  UINT32 * IsCorrect);
