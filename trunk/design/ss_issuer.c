@@ -24,39 +24,56 @@ int TSS_DAA_JOIN_issuer_setup(
                               TSS_DAA_ISSUER_KEY *   IssuerKey,
                               TSS_DAA_ISSUER_PROOF * IssuerProof)
 {
-	bi_ptr x = NULL , y = NULL;
+	bi_ptr x = NULL , y = NULL , order = NULL , bi = NULL , bi_res = NULL;
 	EC_POINT *P1 = NULL , *P2 = NULL , X = NULL , Y = NULL , XP = NULL , YP = NULL;
 	int ret;
 
-	x = bi_new_ptr();//TODO check
-	y = bi_new_ptr();
+	if ( !(IssuerKey->IssuerPK.CapitalX) ) goto err;
+	if ( !(IssuerKey->IssuerPK.CapitalY) ) goto err;
+	if ( !(IssuerKey->IssuerPK.Eccparmeter.CapitalP1) ) goto err;
+	if ( !(IssuerKey->IssuerPK.Eccparmeter.CapitalP2) ) goto err;
+	if ( !(IssuerProof->CapitalXPrime) ) goto err;
+	if ( !(IssuerProof->CapitalYPrime) ) goto err;
+	if ( !(IssuerKey->IssuerSK.x) ) goto err;
+	if ( !(IssuerKey->IssuerSK.y) ) goto err;
 
-	if ( !group )// TODO
-		group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
+	x = bi_new_ptr();	if (!x) goto err;
+	y = bi_new_ptr();	if (!x) goto err;
 
-	if ( !(IssuerKey->IssuerPK.CapitalX) ) IssuerKey->IssuerPK.CapitalX = EC_POINT_new(group);	// if the key-world nothing we built it
-	if ( !(IssuerKey->IssuerPK.CapitalY) ) IssuerKey->IssuerPK.CapitalY = EC_POINT_new(group);
-	if ( !(IssuerKey->IssuerPK.Eccparmeter.CapitalP1) ) IssuerKey->IssuerPK.Eccparmeter.CapitalP1 = EC_POINT_new(group);
-	if ( !(IssuerKey->IssuerPK.Eccparmeter.CapitalP2) ) IssuerKey->IssuerPK.Eccparmeter.CapitalP2 = EC_POINT_new(group);
-	if ( !(IssuerProof->CapitalXPrime) ) IssuerProof->CapitalXPrime = EC_POINT_new(group);
-	if ( !(IssuerProof->CapitalYPrime) ) IssuerProof->CapitalYPrime = EC_POINT_new(group);
+	order = bi_new_ptr();	if (!order) goto err;
 
-	P1 = EC_POINT_new(group);// TODO check
-	P2 = EC_POINT_new(group);
-	XP = EC_POINT_new(group);
-	YP = EC_POINT_new(group);
-	X = EC_POINT_new(group);
-	Y = EC_POINT_new(group);
+	P1 = EC_POINT_new(group);	if (!P1) goto err;
+	P2 = EC_POINT_new(group);	if (!P2) goto err;
+	XP = EC_POINT_new(group);	if (!XP) goto err;
+	YP = EC_POINT_new(group);	if (!YP) goto err;
+	X = EC_POINT_new(group);	if (!X) goto err;
+	Y = EC_POINT_new(group);	if (!Y) goto err;
 
-	if ( !(IssuerKey->IssuerSK.x) ) IssuerKey->IssuerSK.x = bi_new_ptr();
-	if ( !(IssuerKey->IssuerSK.y) ) IssuerKey->IssuerSK.y = bi_new_ptr();
+	/*  GET group->order = order */
+	EC_GROUP_get_order(group , order , Context);
 
-	/*  random x,y  */
-	bi_urandom( x, NONCE_LENGTH );//TODO x,y MOD order
+	/*  random x,y */
+	bi_urandom( x, NONCE_LENGTH );
 	bi_urandom( y, NONCE_LENGTH );
 
-	/*TODO set P1 P2  need get the G from group to P1  and bulit a P2
-	 * const EC_POINT *EC_GROUP_get0_generator(const EC_GROUP *);*/
+	/* set in the key */
+	 bi_set( IssuerKey->IssuerSK.x, x);
+	 bi_set( IssuerKey->IssuerSK.y, y);
+
+
+	bi_res = bi_mod(bi , x, order );
+	if ( !bi_res ) goto err;
+	bi_res = bi_set(x, bi);
+	if ( !bi_res ) goto err;
+
+	bi_res = bi_mod(bi , y, order );
+	if ( !bi_res ) goto err;
+	bi_res = bi_set(y, bi);
+	if ( !bi_res ) goto err;
+
+	/*TODO [set  P2]  need get the G from group to P1  and bulit a P2 */
+	ret = EC_POINT_copy( P1 , EC_GROUP_get0_generator(group));
+	if (!ret) goto err;
 
 	/* X=x*P2 Y=y*P2 */
 	ret = EC_POINT_mul(group, X, NULL, P2 , x, Context);	// mul the x*P2 = X
@@ -72,10 +89,6 @@ int TSS_DAA_JOIN_issuer_setup(
 
 	/* Here is the list maybe make in future developing
 	* Kk	is common var and defined in daa.h */
-
-	/* set in the key */
-	 bi_set( IssuerKey->IssuerSK.x, x);//TODO BN_copy return value
-	 bi_set( IssuerKey->IssuerSK.y, y);
 
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalX , X);
 	if (!ret) goto err;
@@ -103,6 +116,7 @@ int TSS_DAA_JOIN_issuer_setup(
 err:
 	bi_free(x); // TODO check
 	bi_free(y);
+	bi_free(order);
 	EC_POINT_free(X);
 	EC_POINT_free(Y);
 	EC_POINT_free(P1);
@@ -363,7 +377,7 @@ err:
 	bi_free(rxy);
 	EC_POINT_free(SP1);
 	EC_POINT_free(CF);
-	EC_POINT_free(UP);
+	EC_POINT_free(UP);// TODO
 	if ( A ) EC_POINT_free(A);
 	if ( B ) EC_POINT_free(B);
 	if ( C ) EC_POINT_free(C);
