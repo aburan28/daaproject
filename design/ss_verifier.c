@@ -8,7 +8,7 @@
 #include "ss_verifier.h"
 #include "tate_pairing.h"
 
-int HASH (	BYTE * res ,
+int compute_sign_challenge (	BYTE * res ,
 			UINT32 * reslen ,
 			TSS_DAA_ISSUER_PK  * IssuerPK ,
 		    BYTE *  VerifierBasename,
@@ -21,13 +21,14 @@ int HASH (	BYTE * res ,
 			COMPLEX * pa ,
 			COMPLEX * pb ,
 			COMPLEX * pc ,
-			COMPLEX * r ,
+			COMPLEX * t ,
 			bi_ptr nv)
 {
 	EVP_MD * digest = NULL;
 	EVP_MD_CTX mdctx;
 	UINT32 buf_len;
 	BYTE * buf = NULL;
+	int rv;
 
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
@@ -158,14 +159,14 @@ int HASH (	BYTE * res ,
 	if (!rv)
 		goto err;
 
-	buf = bi_2_nbin ( &buf_len, &(r->x) );
-	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  r.x
+	buf = bi_2_nbin ( &buf_len, &(t->x) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  t.x
 	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
 
-	buf = bi_2_nbin ( &buf_len, &(r->y) );
-	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  r.y
+	buf = bi_2_nbin ( &buf_len, &(t->y) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  t.y
 	OPENSSL_free( buf );
 	if (!rv)
 		goto err;
@@ -180,6 +181,12 @@ int HASH (	BYTE * res ,
 	if (!rv)
 		goto err;
 
+	EVP_MD_CTX_cleanup(&mdctx);
+	return 1;
+
+err:
+	EVP_MD_CTX_cleanup(&mdctx);
+	return 0;
 }
 
 int TSS_DAA_JOIN_verifier_init(BYTE **  VerifierBasename,
@@ -204,6 +211,8 @@ int TSS_DAA_JOIN_verifier_init(BYTE **  VerifierBasename,
 	/*built the Nonceverifier*/
 	NonceVerifier = NV;
 	NV = NULL;
+
+	return 1;
 }
 
 int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
@@ -217,87 +226,93 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	/*TODO 1. Check rogue list fi*B'   */
 
 	/* 2. Check A' and B' t(A'，Y) == t(B’，P2) */
-	bi_ptr module = NULL , store =NULL ;
 	COMPLEX *res1 = NULL , *res2 = NULL , *res3 = NULL , pta = NULL , ptb = NULL , ptc = NULL , rt = NULL;
-	BN_CTX *ctx = NULL;
+	bi_ptr module = NULL , store =NULL ;
 	ECC_POINT * SB = NULL , CE = NULL , DT = NULL;
-	BYTE  hash[DAA_HASH_SHA1_LENGTH] , final_hash[DAA_HASH_SHA1_LENGTH];
-	UINT32 hashlen , final_hashlen;
+	BYTE  hash[DAA_HASH_SHA1_LENGTH] , final_hash[DAA_HASH_SHA1_LENGTH] , * buf = NULL;
+	UINT32 hashlen , final_hashlen ,  buf_len;;
+	int ret;
 
-	ctx = BN_CTX_new();
+	EVP_MD * digest = NULL;
+	EVP_MD_CTX mdctx;
 
 	int precomp = 0 , ok;
 
-	COMP_init(res1);
-	COMP_init(res2);
-	COMP_init(res3);
-	COMP_init(pta);
-	COMP_init(ptb);
-	COMP_init(ptc);
+	res1 = COMP_new();
+	res2 = COMP_new();
+	res3 = COMP_new();
+	pta = COMP_new();
+	ptb = COMP_new();
+	ptc = COMP_new();
+
+	module = bi_new_ptr();
+	store  = bi_new_ptr();
+
+	/* Get group module p */
+	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+
+	ret=Tate( &(DaaSignature->CapitalAPrime) , IssuerPK->CapitalY , module , precomp , store , res1);
+	if (!ret) goto err;
+
+	ret=Tate( &(DaaSignature->CapitalBPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , res2);
+	if (!ret) goto err;
+
+	if ( !COMP_cmp( res1 , res2 ) ) goto err;
+
+	/* 3. t(A'，X) -> ρ†a   t(B’，X) -> ρ†b   t(C'，P2) -> ρ†c   */
+
+	ret=Tate( &(DaaSignature->CapitalAPrime) , IssuerPK->CapitalX , module , precomp , store , pta);
+	if (!ret) goto err;
+
+	ret=Tate( &(DaaSignature->CapitalBPrime) , IssuerPK->CapitalX , module , precomp , store , ptb);
+	if (!ret) goto err;
+
+	ret=Tate( &(DaaSignature->CapitalCPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , ptc);
+	if (!ret) goto err;
+
+	/* 4. (ρ†b)s *(ρ†c/ρ†a)-c * -> T†   */
+
+	res1 = COMP_pow(res1 , ptb , DaaSignature->s , module);
+	if (!res1) goto err;
+
+	res2 = COMP_div(res2 , pta , ptc , module);
+	if (!res2) goto err;
+
+	res3 = COMP_pow(res3 , res2 , DaaSignature->ch , module);
+	if (!res3) goto err;
+
+	res2 = COMP_mul(res2 , res1 , res3 , module );
+	if (!res2) goto err;
+
+	rt = res2;
+
+	/*5. S*B' – c E' -> D† */
 
 	SB = EC_POINT_new(group);
 	CE = EC_POINT_new(group);
 	DT = EC_POINT_new(group);
 
-	module = bi_new_ptr();
-	store = bi_new_ptr();
-	sb = bi_new_ptr();
-	ce = bi_new_ptr();
-	dt = bi_new_ptr();
+	ret = EC_POINT_mul(group, SB , NULL, &(DaaSignature->CapitalBPrime) , DaaSignature->s, Context);
+	if (!ret) goto err;
 
-	/* Get group module p */
-	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+	ret = EC_POINT_mul(group, CE , NULL, &(DaaSignature->CapitalEPrimeCapitalBprime) , DaaSignature->ch, Context);
+	if (!ret) goto err;
 
-	/*TODO change the DaaSignature->CapitalAprime ? */
-	Ok=ecap( &(DaaSignature->CapitalAprime) , IssuerPK->CapitalY , module , precomp , store , res1);
+	ret = EC_POINT_invert(group, CE, Context);					/* use  EC_POINT_invert to updown CF so can add it */
+	if (!ret) goto err;
 
-	Ok=ecap( &(DaaSignature->CapitalBPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , res2);
-
-	if ( !COMP_cmp( res1 , res2 ) ) goto err;
-
-	COMP_is_zero( res1 );
-	COMP_is_zero( res2 );
-
-	/* 3. t(A'，X) -> ρ†a   t(B’，X) -> ρ†b   t(C'，P2) -> ρ†c   */
-
-	Ok=ecap( &(DaaSignature->CapitalAprime) , IssuerPK->CapitalX , module , precomp , store , pta);
-
-	Ok=ecap( &(DaaSignature->CapitalBPrime) , IssuerPK->CapitalX , module , precomp , store , ptb);
-
-	Ok=ecap( &(DaaSignature->CapitalCPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , ptc);
-
-	/* 4. (ρ†b)s *(ρ†c/ρ†a)-c * -> T†   */
-
-	res1 = COMP_pow(res1 , ptb , DaaSignature->s , module);
-
-	res2 = COMP_div(res2 , pta , ptc , module);
-
-	res3 = COMP_pow(res3 , res2 , DaaSignature->ch , module);
-
-	COMP_is_zero( res2 );
-
-	res2 = COMP_mul(res2 , res1 , res3 , module );
-
-	rt = res2;
-
-	/*5. S*B' – c E' -> D†
-	 * int EC_POINT_mul(const EC_GROUP *, EC_POINT *r, const BIGNUM *, const EC_POINT *, const BIGNUM *, BN_CTX *);*/
-	ret = EC_POINT_mul(group, SB , NULL, &(DaaSignature->CapitalBPrime) , DaaSignature->s, ctx);
-
-	ret = EC_POINT_mul(group, CE , NULL, &(DaaSignature->CapitalEPrimeCapitalBprime) , DaaSignature->ch, ctx);
-
-	ret = EC_POINT_invert(group, CE, ctx);					/* use  EC_POINT_invert to updown CF so can add it */
-
-	ret = EC_POINT_add(group, DT, SB, CE , ctx);			/* SP1+CF = UP( U’) */
+	ret = EC_POINT_add(group, DT, SB, CE , Context);			/* SP1+CF = UP( U’) */
+	if (!ret) goto err;
 
 	/* 6. H(ipk||bsn||A'||B'||C'||D'||E'||ρ†a||ρ†b||ρ†c|| T†||nv) -> c†    */
 
-	HASH (	hash ,
+	ret = compute_sign_challenge (
+			hash ,
 			&hashlen ,
 			IssuerPK ,
 			*VerifierBasename ,
 			*VerifierBasenameLength ,
-			&(DaaSignature->CapitalAprime) ,
+			&(DaaSignature->CapitalAPrime) ,
 			&(DaaSignature->CapitalBPrime) ,
 			&(DaaSignature->CapitalCPrime) ,
 			DT ,
@@ -307,36 +322,66 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 			ptc ,
 			rt ,
 			DaaSignature->nv);
+	if (!ret) goto err;
 
 	/* 7.1 Make H4(c†|nT||msg) = final_hash    */
-
-	EVP_MD * digest = NULL;
-	EVP_MD_CTX mdctx;
-	UINT32 buf_len;
-	BYTE * buf = NULL;
 
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 
-	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );
+	ret = EVP_DigestInit_ex( &mdctx , digest , NULL );
 
-	rv = EVP_DigestUpdate(&mdctx,  hash , hashlen ); 	//  ct
-	if (!rv)
+	ret = EVP_DigestUpdate(&mdctx,  hash , hashlen ); 	//  ct
+	if (!ret)
 		goto err;
 
 	buf = bi_2_nbin ( &buf_len, DaaSignature->nt );
-	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  nt
+	ret = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  nt
 	OPENSSL_free( buf );
-	if (!rv)
+	if (!ret)
 		goto err;
 														//TODO haven't define msg
-	rv = EVP_DigestUpdate(&mdctx,  MSG , MSG_LEN ); 	//  nt
-	if (!rv)
+	ret = EVP_DigestUpdate(&mdctx,  MSG , MSG_LEN ); 	//  nt
+	if (!ret)
 		goto err;
 
-	rv = EVP_DigestFinal_ex(&mdctx, final_hash, &final_hashlen );
-	if (!rv)
+	ret = EVP_DigestFinal_ex(&mdctx, final_hash, &final_hashlen );
+	if (!ret)
 		goto err;
 
 	/*TODO 7. check final_hash == c   */
+	COMP_free(res1);
+	COMP_free(res2);
+	COMP_free(res3);
+	COMP_free(pta);
+	COMP_free(ptb);
+	COMP_free(ptc);
+	EVP_MD_CTX_cleanup(&mdctx);
+
+	EC_POINT_free(module);
+	EC_POINT_free(store);
+
+	if (SB) EC_POINT_free(SB);
+	if (CE) EC_POINT_free(CE);
+	if (DT) EC_POINT_free(DT);
+
+	return 1;
+
+err:
+	COMP_free(res1);
+	COMP_free(res2);
+	COMP_free(res3);
+	COMP_free(pta);
+	COMP_free(ptb);
+	COMP_free(ptc);
+	EVP_MD_CTX_cleanup(&mdctx);
+
+	EC_POINT_free(module);
+	EC_POINT_free(store);
+
+	if (SB) EC_POINT_free(SB);
+	if (CE) EC_POINT_free(CE);
+	if (DT) EC_POINT_free(DT);
+
+	return 0;
 }
