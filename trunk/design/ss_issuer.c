@@ -27,12 +27,9 @@ int TSS_DAA_JOIN_issuer_setup(
 	bi_ptr x = NULL , y = NULL;
 	EC_POINT *P1 = NULL , *P2 = NULL , X = NULL , Y = NULL , XP = NULL , YP = NULL;
 	int ret;
-	BN_CTX *ctx = NULL;
 
 	x = bi_new_ptr();
 	y = bi_new_ptr();
-
-	ctx = BN_CTX_new();
 
 	if (!group)
 		group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
@@ -51,33 +48,33 @@ int TSS_DAA_JOIN_issuer_setup(
 	X = EC_POINT_new(group);
 	Y = EC_POINT_new(group);
 
+	if ( !(IssuerKey->IssuerSK.x) ) IssuerKey->IssuerSK.x = bi_new_ptr();
+	if ( !(IssuerKey->IssuerSK.y) ) IssuerKey->IssuerSK.y = bi_new_ptr();
 
-	// random x,y;
+	/*  random x,y  */
 	bi_urandom( x, NONCE_LENGTH );
 	bi_urandom( y, NONCE_LENGTH );
 
-	//TODO set P1 P2
-	// X=x*P2 Y=y*P2
-	ret = EC_POINT_mul(group, X, NULL, P2 , x, ctx);	// mul the x*P2 = X
-	if (!ret) goto err;
-	ret = EC_POINT_mul(group, Y, NULL, P2 , y, ctx);	// mul the y*P2 = Y
-	if (!ret) goto err;
+	/*TODO set P1 P2  need get the G from group to P1  and bulit a P2 */
 
-	// XP=x*P1 YP=y*P1
-	ret = EC_POINT_mul(group, XP, NULL, P1 , x, ctx);	// mul the x*P1 = XP
+	/* X=x*P2 Y=y*P2 */
+	ret = EC_POINT_mul(group, X, NULL, P2 , x, Context);	// mul the x*P2 = X
 	if (!ret) goto err;
-	ret = EC_POINT_mul(group, YP, NULL, P1 , y, ctx);	// mul the y*P1 = YP
+	ret = EC_POINT_mul(group, Y, NULL, P2 , y, Context);	// mul the y*P2 = Y
 	if (!ret) goto err;
 
-	// Here is the list maybe make in future developing
-	// IPK Kk
+	/* XP=x*P1 YP=y*P1 */
+	ret = EC_POINT_mul(group, XP, NULL, P1 , x, Context);	// mul the x*P1 = XP
+	if (!ret) goto err;
+	ret = EC_POINT_mul(group, YP, NULL, P1 , y, Context);	// mul the y*P1 = YP
+	if (!ret) goto err;
 
-	// set in the key
-	IssuerKey->IssuerSK.x = x;
-	IssuerKey->IssuerSK.y = y;
+	/* Here is the list maybe make in future developing
+		 IPK Kk	*/
 
-	x = NULL ;
-	y = NULL ;
+	/* set in the key */
+	 bi_set( IssuerKey->IssuerSK.x, x);
+	 bi_set( IssuerKey->IssuerSK.y, y);
 
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalX , X);
 	if (!ret) goto err;
@@ -92,7 +89,6 @@ int TSS_DAA_JOIN_issuer_setup(
 	ret = EC_POINT_copy( IssuerProof->CapitalYPrime , YP);
 	if (!ret) goto err;
 
-	BN_CTX_free(ctx);
 	if ( x ) bi_free(x);
 	if ( y ) bi_free(y);
 	EC_POINT_free(X);
@@ -104,7 +100,6 @@ int TSS_DAA_JOIN_issuer_setup(
 
 	return 1;
 err:
-	BN_CTX_free(ctx);
 	bi_free(x);
 	bi_free(y);
 	EC_POINT_free(X);
@@ -114,8 +109,10 @@ err:
 	EC_POINT_free(XP);
 	EC_POINT_free(YP);
 
+	bi_free(IssuerKey->IssuerSK.x);
+	bi_free(IssuerKey->IssuerSK.y);
 	EC_POINT_free(IssuerKey->IssuerPK.CapitalX);
-	EC_POINT_free(IssuerKey->IssuerPK.CapitalY , Y);
+	EC_POINT_free(IssuerKey->IssuerPK.CapitalY);
 	EC_POINT_free(IssuerKey->IssuerPK.Eccparmeter.CapitalP1);
 	EC_POINT_free(IssuerKey->IssuerPK.Eccparmeter.CapitalP2);
 	EC_POINT_free(IssuerProof->CapitalXPrime);

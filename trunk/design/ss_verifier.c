@@ -8,21 +8,21 @@
 #include "ss_verifier.h"
 #include "tate_pairing.h"
 
-int compute_sign_challenge (	BYTE * res ,
-			UINT32 * reslen ,
-			TSS_DAA_ISSUER_PK  * IssuerPK ,
-		    BYTE *  VerifierBasename,
-			UINT32  VerifierBasenameLength,,
-			ECC_POINT *  CapitalA,
-			ECC_POINT *  CapitalB ,
-			ECC_POINT *  CapitalC ,
-			ECC_POINT *  CapitalD ,
-			ECC_POINT *  CapitalE ,
-			COMPLEX * pa ,
-			COMPLEX * pb ,
-			COMPLEX * pc ,
-			COMPLEX * t ,
-			bi_ptr nv)
+int compute_sign_challenge (BYTE *res ,
+		UINT32 * reslen ,
+		TSS_DAA_ISSUER_PK  * IssuerPK ,
+		BYTE *  VerifierBasename,
+		UINT32  VerifierBasenameLength,,
+		ECC_POINT *  CapitalA,
+		ECC_POINT *  CapitalB ,
+		ECC_POINT *  CapitalC ,
+		ECC_POINT *  CapitalD ,
+		ECC_POINT *  CapitalE ,
+		COMPLEX * pa ,
+		COMPLEX * pb ,
+		COMPLEX * pc ,
+		COMPLEX * t ,
+		bi_ptr nv)
 {
 	EVP_MD * digest = NULL;
 	EVP_MD_CTX mdctx;
@@ -340,8 +340,8 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	OPENSSL_free( buf );
 	if (!ret)
 		goto err;
-														//TODO haven't define msg
-	ret = EVP_DigestUpdate(&mdctx,  MSG , MSG_LEN ); 	//  nt
+
+	ret = EVP_DigestUpdate(&mdctx,  DAA_SIGN_MESSAGE , strlen(DAA_SIGN_MESSAGE) ); 	//  nt
 	if (!ret)
 		goto err;
 
@@ -349,7 +349,8 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	if (!ret)
 		goto err;
 
-	/*TODO 7. check final_hash == c   */
+	/*TODO 7.2 check final_hash == c   */
+
 	COMP_free(res1);
 	COMP_free(res2);
 	COMP_free(res3);
