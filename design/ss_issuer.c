@@ -133,44 +133,44 @@ int TSS_DAA_JOIN_issuer_init(
 	bi_ptr ni = NULL;
 	BYTE  *hex_ni = NULL , *eni_st = NULL;
 	UINT32 hex_ni_len;
-												//		1.	{0,1}t -> nI
+	/* 1.	{0,1}t -> nI */
 	ni = bi_new_ptr();
-	bi_urandom( ni, NONCE_LENGTH );
+	if ( !(IssuerJoinSession.IssuerNone) ) IssuerJoinSession.IssuerNone = bi_new_ptr();
 
-	IssuerJoinSession.IssuerNone = ni;
+	bi_urandom(ni , NONCE_LENGTH );
+	bi_set( IssuerJoinSession.IssuerNone, ni); //TODO find out and err it
+	/* built the final commreq */
+	eni_st = OPENSSL_malloc(( RSA_MODLE_LENGTH / 8 + 1) );
+
+	/* change ni to hex_ni */
+	hex_ni = bi_2_hex_char( ni );
+	hex_ni_len = strlen( hex_ni );
 
 	rsa = RSA_new();
-
-	eni_st = OPENSSL_malloc(( RSA_MODLE_LENGTH / 8 + 1) );					   //built the final commreq {RSA_MODLE_LENGTH=2048}
-
-	hex_ni = bi_2_hex_char( ni );
-	hex_ni_len = strlen( hex_ni );             //   	change ni to hex_ni
-
 	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
 	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);    // setup rsa
     if ( ( rsa->e == NULL ) || ( rsa->n == NULL ) )
     	goto err;
-												//					2.	nI -> commreq
+    /* nI -> commreq */
 	rv = RSA_public_encrypt( hex_ni_len, hex_ni , eni_st , rsa , RSA_NO_PADDING);
 	if (rv == -1)
 		goto err;
-
-	*EncryptedNonceOfIssuer = eni_st;          // send out
+	/* send out */
+	*EncryptedNonceOfIssuer = eni_st;
 	*EncryptedNonceOfIssuerLength = rv;
+	eni_st = NULL;
 
-	ni = NULL;      // here we make NULL so not free it
-
-	if (eni_st) free(eni_st);
 	if (ni) bi_free(ni);
 	if (rsa) RSA_free(rsa);
+	if (eni_st) OPENSSL_free(eni_st);
 	if (hex_ni) OPENSSL_free(hex_ni);
 
 	return 1;
 
 err:
-	if (eni_st) free(eni_st);
 	if (ni) bi_free(ni);
 	if (rsa) RSA_free(rsa);
+	if (eni_st) OPENSSL_free(eni_st);
 	if (hex_ni) OPENSSL_free(hex_ni);
 
 	return 0;
