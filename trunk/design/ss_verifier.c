@@ -35,7 +35,7 @@ int compute_sign_challenge (BYTE *res ,
 
 	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );
 
-	buf = bi_2_nbin ( &buf_len, &(IssuerPK->CapitalX->X) );
+	buf = bi_2_nbin ( &buf_len, &(IssuerPK->CapitalX->X) );// TODO check buf
 	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  IssuerPK x.x
 	OPENSSL_free( buf );
 	if (!rv)
@@ -59,7 +59,7 @@ int compute_sign_challenge (BYTE *res ,
 	if (!rv)
 		goto err;
 
-	rv = EVP_DigestUpdate(&mdctx,  VerifierBasename , VerifierBasenameLength ); 	//  bsn
+	rv = EVP_DigestUpdate(&mdctx,  VerifierBasename , VerifierBasenameLength ); 	//  bsn // TODO check NULL
 	if (!rv)
 		goto err;
 
@@ -177,7 +177,7 @@ int compute_sign_challenge (BYTE *res ,
 	if (!rv)
 		goto err;
 
-	rv = EVP_DigestFinal_ex(&mdctx, res, reslen );
+	rv = EVP_DigestFinal_ex(&mdctx, res, reslen ); // TODO res malloc memory and release
 	if (!rv)
 		goto err;
 
@@ -195,9 +195,10 @@ int TSS_DAA_JOIN_verifier_init(BYTE **  VerifierBasename,
 {
 	bi_ptr NV;
 
-	NV = bi_new_ptr();
+	NV = bi_new_ptr(); // CHECK
 	bi_urandom( NV , NONCE_LENGTH );
-	/* built up the Vbasename */
+
+	/* built up the Vbasename */// TODO  UNDO MALLOC
 	if (!(*VerifierBasename))
 		{
 			*VerifierBasename = OPENSSL_malloc( strlen(BASENAME)+1 );
@@ -206,19 +207,19 @@ int TSS_DAA_JOIN_verifier_init(BYTE **  VerifierBasename,
 		{
 			VerifierBasenameLength = OPENSSL_malloc( sizeof(UINT32) / 8 );
 		}
-	strcpy(*VerifierBasename,BASENAME);
-	*VerifierBasenameLength = strlen(BASENAME);
+	strcpy( *VerifierBasename,BASENAME );
+	*VerifierBasenameLength = strlen( BASENAME );
 	/*built the Nonceverifier*/
 	NonceVerifier = NV;
-	NV = NULL;
+//	NV = NULL;
 
 	return 1;
 }
 
 int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 							     TSS_DAA_ISSUER_PK  *   IssuerPK,
-							     BYTE **  VerifierBasename,
-							     UINT32 * VerifierBasenameLength,
+							     BYTE *  VerifierBasename,
+							     UINT32  VerifierBasenameLength,
 							     BYTE   * Msg,
 							     UINT32   MsgLength,
                                  UINT32 * IsCorrect)
@@ -251,23 +252,23 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	/* Get group module p */
 	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
 
-	ret=Tate( &(DaaSignature->CapitalAPrime) , IssuerPK->CapitalY , module , precomp , store , res1);
+	ret = Tate( &(DaaSignature->CapitalAPrime) , IssuerPK->CapitalY , module , precomp , store , res1);// TODO init BIGNUM store[500]
 	if (!ret) goto err;
 
-	ret=Tate( &(DaaSignature->CapitalBPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , res2);
+	ret = Tate( &(DaaSignature->CapitalBPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , res2);
 	if (!ret) goto err;
 
 	if ( !COMP_cmp( res1 , res2 ) ) goto err;
 
 	/* 3. t(A'，X) -> ρ†a   t(B’，X) -> ρ†b   t(C'，P2) -> ρ†c   */
 
-	ret=Tate( &(DaaSignature->CapitalAPrime) , IssuerPK->CapitalX , module , precomp , store , pta);
+	ret = Tate( &(DaaSignature->CapitalAPrime) , IssuerPK->CapitalX , module , precomp , store , pta);
 	if (!ret) goto err;
 
-	ret=Tate( &(DaaSignature->CapitalBPrime) , IssuerPK->CapitalX , module , precomp , store , ptb);
+	ret = Tate( &(DaaSignature->CapitalBPrime) , IssuerPK->CapitalX , module , precomp , store , ptb);
 	if (!ret) goto err;
 
-	ret=Tate( &(DaaSignature->CapitalCPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , ptc);
+	ret = Tate( &(DaaSignature->CapitalCPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , ptc);
 	if (!ret) goto err;
 
 	/* 4. (ρ†b)s *(ρ†c/ρ†a)-c * -> T†   */
@@ -310,8 +311,8 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 			hash ,
 			&hashlen ,
 			IssuerPK ,
-			*VerifierBasename ,
-			*VerifierBasenameLength ,
+			VerifierBasename ,
+			VerifierBasenameLength ,
 			&(DaaSignature->CapitalAPrime) ,
 			&(DaaSignature->CapitalBPrime) ,
 			&(DaaSignature->CapitalCPrime) ,
@@ -322,7 +323,7 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 			ptc ,
 			rt ,
 			DaaSignature->nv);
-	if (!ret) goto err;
+	if (!ret) goto err;// TODO check hash_len
 
 	/* 7.1 Make H4(c†|nT||msg) = final_hash    */
 
@@ -359,8 +360,8 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	COMP_free(ptc);
 	EVP_MD_CTX_cleanup(&mdctx);
 
-	EC_POINT_free(module);
-	EC_POINT_free(store);
+	EC_POINT_free(module);// TODO bi_free_ptr( module )
+	EC_POINT_free(store); // TODO undo store, static array
 
 	if (SB) EC_POINT_free(SB);
 	if (CE) EC_POINT_free(CE);
@@ -377,8 +378,8 @@ err:
 	COMP_free(ptc);
 	EVP_MD_CTX_cleanup(&mdctx);
 
-	EC_POINT_free(module);
-	EC_POINT_free(store);
+	EC_POINT_free(module);//
+	EC_POINT_free(store);//
 
 	if (SB) EC_POINT_free(SB);
 	if (CE) EC_POINT_free(CE);
