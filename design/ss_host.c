@@ -297,12 +297,37 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 						nv
 						);
 
+	bi_free_ptr( module );
+	bi_free_ptr( nv );
+	bi_free_ptr( rprime );
+
+	EC_POINT_free( point );
+
+	COMP_free( complex );
+	COMP_free( &Roaprime );
+	COMP_free( &Robprime );
+	COMP_free( &Rocprime );
+
 	return 1;
 
-	err:
+err:
+
+	if ( module )
+		bi_free_ptr( module );
+	if ( nv )
+		bi_free_ptr( nv );
+	if (rprime )
+		bi_free_ptr( rprime );
+
+	if ( point )
+		EC_POINT_free( point );
+
+	COMP_free( complex );
+	COMP_free( &Roaprime );
+	COMP_free( &Robprime );
+	COMP_free( &Rocprime );
 
 	return 0;
-
 	//7. c' -> TPM   :// ?
 
 }
