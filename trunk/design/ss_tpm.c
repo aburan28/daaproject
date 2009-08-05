@@ -11,7 +11,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
                                     UINT32 EncryptedNonceOfIssuerLength,
                                     TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
                                     TSS_DAA_ISSUER_PK        * IssuerPK,
-                                    TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession,
+                                    TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession
                                     ) //TODO change to BYTE *
 {
 	bi_ptr   u = NULL , f = NULL , c = NULL ,s = NULL , module = NULL, temp = NULL;
@@ -49,7 +49,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	/* Return either an EVP_MD structure or NULL if an error occurs. */
 	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );			//  initialization the ||
 	if (!rv)
-		goto err;RSA      *rsa = NULL;
+		goto err;
 
 	/* 1: 1||X||Y||nI -> str */
 	rv = EVP_DigestUpdate(&mdctx,  exp , e_size );			//  1

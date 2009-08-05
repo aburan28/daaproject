@@ -58,7 +58,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 		goto err;
 
 	precomp = 0;
-	COMP_init( complex );
+	complex = COMP_new();
 
 	ret = Tate( &(DaaCredential->CapitalA), IssuerPK->CapitalX, module, precomp, store, complex);
 	if ( !ret )
@@ -93,8 +93,8 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	if ( !ret )
 		goto err;
 
-	if ( !COMP_init( complex2 ))
-		goto err;
+	complex2 = COMP_new();
+
 	ret = Tate( &(DaaCredential->CapitalB), IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex2);
 	if ( !ret )
 		goto err;
@@ -109,7 +109,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	if ( !ret )
 		goto err;
 
-	ret = EC_POINT_add( point, &(DaaCredential->CapitalA, point, Context);
+	ret = EC_POINT_add( group, point, &(DaaCredential->CapitalA), point, Context);
 	if ( !ret )
 		goto err;
 
@@ -149,7 +149,7 @@ err:
 int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
                            UINT32 RPrimeLength,                         // in
                            BYTE * DPrime,                               // in
-                           UINT32 DPrimeLEgnth,                         // in
+                           UINT32 DPrimeLength,                         // in
                            BYTE * NonceVerifier,                        // in
                            UINT32 NonceVerifierLength,                  // in
                            TSS_DAA_CREDENTIAL2 *DaaCredential,          // in
@@ -163,7 +163,8 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 	COMPLEX  comp, *complex = &comp, Roaprime, Robprime, Rocprime;
 	BYTE     hash[DAA_HASH_SHA1_LENGTH];
 	UINT32   hash_len;
-	int      ret;
+	BIGNUM   store[500];
+	int      ret, precomp = 0;
 
 	/* Get group module p */
 	module = bi_new_ptr();
@@ -197,7 +198,7 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 	if ( RPrime == NULL || RPrimeLength == 0 )
 		goto err;
 
-	rprime = bi_set_as_nbin( RPrime, RPrimeLength );
+	rprime = bi_set_as_nbin( RPrimeLength, RPrime );
 	if ( rprime == NULL )
 		goto err;
 
@@ -209,16 +210,16 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 		goto err;
 
 	/* point = r' * A */
-	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalA, rprime, Context );
+	ret = EC_POINT_mul( group, point, NULL, &(DaaCredential->CapitalA), rprime, Context );
 	if ( !ret )
 		goto err;
 
-	ret = EC_POINT_copy( &(DaaSignature->CapitalAprime), point );
+	ret = EC_POINT_copy( &(DaaSignature->CapitalAPrime), point );
 	if ( !ret )
 		goto err;
 
 	/* C' = r' * C */
-	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalC, rprime, Context );
+	ret = EC_POINT_mul( group, point, NULL, &(DaaCredential->CapitalC), rprime, Context );
 	if ( !ret )
 		goto err;
 
@@ -227,7 +228,7 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 		goto err;
 
 	/* B' = r'*B   */
-	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalB, rprime, Context );
+	ret = EC_POINT_mul( group, point, NULL, &(DaaCredential->CapitalB), rprime, Context );
 	if ( !ret )
 		goto err;
 
@@ -252,21 +253,21 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 	COMP_init( &Rocprime );
 
 	/* ρa^r' -> ρa' */
-	if ( !COMP_pow( complex, HostJoinSession->Roa, rpime ) )
+	if ( !COMP_pow( complex, HostJoinSession->Roa, rprime, module ) )
 		goto err;
 
 	if ( !COMP_copy( &Roaprime, complex ) )
 		goto err;
 
 	/* ρb^r' -> ρb' */
-	if ( !COMP_pow( complex, HostJoinSession->Rob, rpime ) )
+	if ( !COMP_pow( complex, HostJoinSession->Rob, rprime, module ) )
 		goto err;
 
 	if ( !COMP_copy( &Robprime, complex ) )
 		goto err;
 
 	/* ρc^r' -> ρc' */
-	if ( !COMP_pow( complex, HostJoinSession->Roc, rpime ) )
+	if ( !COMP_pow( complex, HostJoinSession->Roc, rprime, module ) )
 		goto err;
 
 	if ( !COMP_copy( &Rocprime, complex ) )
