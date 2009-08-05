@@ -25,17 +25,17 @@ int TSS_DAA_JOIN_issuer_setup(
                               TSS_DAA_ISSUER_PROOF * IssuerProof)
 {
 	bi_ptr x = NULL , y = NULL , order = NULL , bi = NULL , bi_res = NULL;
-	EC_POINT *P1 = NULL , *P2 = NULL , X = NULL , Y = NULL , XP = NULL , YP = NULL;
+	EC_POINT *P1 = NULL , *P2 = NULL , point = NULL;
 	int ret;
 
-	if ( !(IssuerKey->IssuerPK.CapitalX) ) goto err;
-	if ( !(IssuerKey->IssuerPK.CapitalY) ) goto err;
-	if ( !(IssuerKey->IssuerPK.Eccparmeter.CapitalP1) ) goto err;
-	if ( !(IssuerKey->IssuerPK.Eccparmeter.CapitalP2) ) goto err;
-	if ( !(IssuerProof->CapitalXPrime) ) goto err;
-	if ( !(IssuerProof->CapitalYPrime) ) goto err;
-	if ( !(IssuerKey->IssuerSK.x) ) goto err;
-	if ( !(IssuerKey->IssuerSK.y) ) goto err;
+	if ( !(IssuerKey->IssuerPK.CapitalX) ||
+		 !(IssuerKey->IssuerPK.CapitalY) ||
+	     !(IssuerKey->IssuerPK.Eccparmeter.CapitalP1) ||
+	     !(IssuerKey->IssuerPK.Eccparmeter.CapitalP2) ||
+	     !(IssuerProof->CapitalXPrime) ||
+	     !(IssuerProof->CapitalYPrime) ||
+	     !(IssuerKey->IssuerSK.x) ||
+	     !(IssuerKey->IssuerSK.y) ) return 0;
 
 	x = bi_new_ptr();	if (!x) goto err;
 	y = bi_new_ptr();	if (!x) goto err;
@@ -44,10 +44,7 @@ int TSS_DAA_JOIN_issuer_setup(
 
 	P1 = EC_POINT_new(group);	if (!P1) goto err;
 	P2 = EC_POINT_new(group);	if (!P2) goto err;
-	XP = EC_POINT_new(group);	if (!XP) goto err;
-	YP = EC_POINT_new(group);	if (!YP) goto err;
-	X = EC_POINT_new(group);	if (!X) goto err;
-	Y = EC_POINT_new(group);	if (!Y) goto err;
+	point = EC_POINT_new(group);	if (!point) goto err;
 
 	/*  GET group->order = order */
 	EC_GROUP_get_order(group , order , Context);
@@ -56,82 +53,63 @@ int TSS_DAA_JOIN_issuer_setup(
 	bi_urandom( x, NONCE_LENGTH );
 	bi_urandom( y, NONCE_LENGTH );
 
+	bi_res = bi_mod(x , x, order );
+	if ( !bi_res ) goto err;
+	bi_res = bi_mod(y , y, order );
+	if ( !bi_res ) goto err;
+
 	/* set in the key */
-	 bi_set( IssuerKey->IssuerSK.x, x);
-	 bi_set( IssuerKey->IssuerSK.y, y);
-
-
-	bi_res = bi_mod(bi , x, order );
-	if ( !bi_res ) goto err;
-	bi_res = bi_set(x, bi);
-	if ( !bi_res ) goto err;
-
-	bi_res = bi_mod(bi , y, order );
-	if ( !bi_res ) goto err;
-	bi_res = bi_set(y, bi);
-	if ( !bi_res ) goto err;
+	bi_set( IssuerKey->IssuerSK.x, x);
+	bi_set( IssuerKey->IssuerSK.y, y);
 
 	/*TODO [set  P2]  need get the G from group to P1  and bulit a P2 */
 	ret = EC_POINT_copy( P1 , EC_GROUP_get0_generator(group));
 	if (!ret) goto err;
 
 	/* X=x*P2 Y=y*P2 */
-	ret = EC_POINT_mul(group, X, NULL, P2 , x, Context);	// mul the x*P2 = X
+	ret = EC_POINT_mul(group, point, NULL, P2 , x, Context);	// mul the x*P2 = X
 	if (!ret) goto err;
-	ret = EC_POINT_mul(group, Y, NULL, P2 , y, Context);	// mul the y*P2 = Y
+	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalX , point);
+	if (!ret) goto err;
+
+	ret = EC_POINT_mul(group, point, NULL, P2 , y, Context);	// mul the y*P2 = Y
+	if (!ret) goto err;
+	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalY , point);
 	if (!ret) goto err;
 
 	/* XP=x*P1 YP=y*P1 */
-	ret = EC_POINT_mul(group, XP, NULL, P1 , x, Context);	// mul the x*P1 = XP
+	ret = EC_POINT_mul(group, point, NULL, P1 , x, Context);	// mul the x*P1 = XP
 	if (!ret) goto err;
-	ret = EC_POINT_mul(group, YP, NULL, P1 , y, Context);	// mul the y*P1 = YP
+	ret = EC_POINT_copy( IssuerProof->CapitalXPrime , point);
+	if (!ret) goto err;
+
+	ret = EC_POINT_mul(group, point, NULL, P1 , y, Context);	// mul the y*P1 = YP
+	if (!ret) goto err;
+	ret = EC_POINT_copy( IssuerProof->CapitalYPrime , point);
 	if (!ret) goto err;
 
 	/* Here is the list maybe make in future developing
-	* Kk	is common var and defined in daa.h */
+	*  Kk	is common var and defined in daa.h */
 
-	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalX , X);
-	if (!ret) goto err;
-	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalY , Y);
-	if (!ret) goto err;
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , P1);
 	if (!ret) goto err;
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.Eccparmeter.CapitalP2 , P2);
 	if (!ret) goto err;
-	ret = EC_POINT_copy( IssuerProof->CapitalXPrime , XP);
-	if (!ret) goto err;
-	ret = EC_POINT_copy( IssuerProof->CapitalYPrime , YP);
-	if (!ret) goto err;
 
-	if ( x ) bi_free(x);
-	if ( y ) bi_free(y);
-	EC_POINT_free(X);
-	EC_POINT_free(Y);
+	bi_free(x);
+	bi_free(y);
+	EC_POINT_free(point);
 	EC_POINT_free(P1);
 	EC_POINT_free(P2);
-	EC_POINT_free(XP);
-	EC_POINT_free(YP);
 
 	return 1;
 err:
-	bi_free(x); // TODO check
-	bi_free(y);
-	bi_free(order);
-	EC_POINT_free(X);
-	EC_POINT_free(Y);
-	EC_POINT_free(P1);
-	EC_POINT_free(P2);
-	EC_POINT_free(XP);
-	EC_POINT_free(YP);
-
-	bi_free(IssuerKey->IssuerSK.x);
-	bi_free(IssuerKey->IssuerSK.y);
-	EC_POINT_free(IssuerKey->IssuerPK.CapitalX);
-	EC_POINT_free(IssuerKey->IssuerPK.CapitalY);
-	EC_POINT_free(IssuerKey->IssuerPK.Eccparmeter.CapitalP1);
-	EC_POINT_free(IssuerKey->IssuerPK.Eccparmeter.CapitalP2);
-	EC_POINT_free(IssuerProof->CapitalXPrime);
-	EC_POINT_free(IssuerProof->CapitalYPrime);
+	if (x) bi_free(x);
+	if (y) bi_free(y);
+	if (order) bi_free(order);
+	if (point) EC_POINT_free(point);
+	if (P1) EC_POINT_free(P1);
+	if (P2) EC_POINT_free(P2);
 
 	return 0;
 }
@@ -149,21 +127,26 @@ int TSS_DAA_JOIN_issuer_init(
 	BYTE  *hex_ni = NULL , *eni_st = NULL;
 	UINT32 hex_ni_len;
 
+	if ( !(IssuerJoinSession.IssuerNone) )  return 0;
+
 	/* 1.	{0,1}t -> nI */
 	ni = bi_new_ptr();
-	if ( !(IssuerJoinSession.IssuerNone) ) IssuerJoinSession.IssuerNone = bi_new_ptr();
+	if (!ni)
+		return 0;
 
 	bi_urandom(ni , NONCE_LENGTH );
-	bi_set( IssuerJoinSession.IssuerNone, ni); //TODO find out and err it
+	bi_set( IssuerJoinSession.IssuerNone, ni);
 
 	/* built the final commreq */
-	eni_st = OPENSSL_malloc(( RSA_MODLE_LENGTH / 8 + 1) );// TODO check success
+	eni_st = OPENSSL_malloc(( RSA_MODLE_LENGTH / 8 + 1) );
+	if (!eni_st) goto err;
 
 	/* change ni to hex_ni */
 	hex_ni = bi_2_hex_char( ni );// bi_2_nbin() and check
 	hex_ni_len = strlen( hex_ni );
 
-	rsa = RSA_new();// TODO check
+	rsa = RSA_new();
+	if (!rsa) goto err;
 	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
 	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);    // setup rsa
     if ( ( rsa->e == NULL ) || ( rsa->n == NULL ) )
@@ -179,9 +162,8 @@ int TSS_DAA_JOIN_issuer_init(
 	*EncryptedNonceOfIssuerLength = rv;
 	//eni_st = NULL;
 
-	if (ni) bi_free(ni); // TODO undo check
-	if (rsa) RSA_free(rsa);
-	//if (eni_st) OPENSSL_free(eni_st);
+	bi_free(ni);
+	RSA_free(rsa);
 	if (hex_ni) OPENSSL_free(hex_ni);
 
 	return 1;
@@ -205,195 +187,202 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 {
 
 	point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
-	BYTE     * cre;
 	BN_CTX   *ctx = NULL;
-	EC_POINT *SP1 = NULL , *CF = NULL , *UP = NULL , *A = NULL , *B = NULL , *C = NULL , *XA = NULL , *RXYF = NULL;
-	bi_ptr   r = NULL , xy = NULL , rxy = NULL;
-	char     *ahex = NULL, *bhex = NULL, *chex = NULL , *aenc = NULL , *benc = NULL , *cenc = NULL;
-	int      i , ret , HEX_LENGTH , e_size = 3 , RSA_BYTES_LEN = RSA_MODLE_LENGTH / 8;
+	EC_POINT *Ctemp = NULL , point1 = NULL , point2 = NULL ,  UPrime = NULL;;
+	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL ;
+	char     buffer = NULL , encrypted_oct = NULL;
+	int      i , ret , oct_len , e_size = 3 , buffer_len = 1024;
 	RSA      *rsa = NULL;
 	unsigned char exp[] = { 0x01, 0x00, 0x01 };
 
-	rsa = RSA_new();// TODO check
+	if (!group) return 0;
+
+	rsa = RSA_new();		if (!rsa) return 0;
+
 	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
 	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);
 	if ( ( rsa->e == NULL ) || ( rsa->n == NULL ) )
 		goto err;
 
-	if (!group)// TODO get rid of
-		group = EC_GROUP_new(EC_GFp_simple_method());       //  default setting for simple method
-	ctx = BN_CTX_new();// Context
+	xy	  = bi_new_ptr();	if (!xy)    goto err;
+	order = bi_new_ptr();	if (!order) goto err;
 
-	aenc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) );
-	benc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) );
-	cenc = OPENSSL_malloc(( RSA_BYTES_LEN + 1) );
-	(*EncyptedCred) = OPENSSL_malloc(( RSA_BYTES_LEN * 3 +1) );
+	point1 = EC_POINT_new(group);
+	if (!point1) goto err;
+	point2  = EC_POINT_new(group);
+	if (!point2) goto err;
 
-
-	xy = bi_new_ptr();
-	rxy = bi_new_ptr();// TODO CHECK
-
-
-	SP1 = EC_POINT_new(group);// TODO CHECK
-	CF  = EC_POINT_new(group);
-	UP  = EC_POINT_new(group);
-	A = EC_POINT_new(group);
-	B = EC_POINT_new(group);
-	C = EC_POINT_new(group);
-	XA = EC_POINT_new(group);
-	RXYF = EC_POINT_new(group);
+	UPrime = EC_POINT_new(group);
+	if (!UPrime) goto err;
+	Ctemp = EC_POINT_new(group);
+	if (!Ctemp) goto err;
 
 	/* s*P1 – c*F -> U’ */
-	// EC_POINT_mul  return 0 err
-	ret = EC_POINT_mul(group, SP1, NULL, IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , IssuerJoinSession->s, ctx);	// mul the s*P1 = SP1
+
+	/* mul the s*P1 = point1 */
+	ret = EC_POINT_mul(group, point1, NULL, IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , IssuerJoinSession->s, Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_mul(group, CF , NULL, &(IssuerJoinSession->CapitalF) , IssuerJoinSession->ch, ctx);				// mul the c*F  = CF
+	/* mul the c*F  = point2 */
+	ret = EC_POINT_mul(group, point2 , NULL, &(IssuerJoinSession->CapitalF) , IssuerJoinSession->ch, Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_invert(group, CF, ctx);					// use  EC_POINT_invert to updown CF so can add it
+	/* use  EC_POINT_invert to updown point2 so can add it */
+	ret = EC_POINT_invert(group, point2, Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_add(group, UP, SP1, CF , ctx);					// S*P1 + CF = UP( U’)
+	/* S*P1 + CF = point3( U’) */
+	ret = EC_POINT_add(group, UPrime, point1, point2 , Context);
 	if ( !ret ) goto err;
 
 	//TODO	check rogue list
 
-	//	Zq -> r ->finish
+	//	Zq -> r ->mod -> finish
 	r = bi_new_ptr();
-	bi_urandom( r, NONCE_LENGTH ); //TODO MOD order
+	if (!r) goto err;
+	bi_urandom( r, NONCE_LENGTH );
 
-	//	r *P1 -> A   y*A -> B
-	ret = EC_POINT_mul(group, A, NULL, IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , r , ctx);	// mul the r*P1 = A
+	/*  GET group->order = order */
+	EC_GROUP_get_order(group , order , Context);
+	if (!order) goto err;
+
+	/*  r mod order */
+	bi_res = bi_mod(r , r, order );
+	if ( !bi_res ) goto err;
+
+	/*	r *P1 -> A   y*A -> B */
+
+	/* 1 mul the r*P1 = point1 - > A */
+	ret = EC_POINT_mul(group, point1 , NULL, IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , r , Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_mul(group, B, NULL, A , IssuerKey->IssuerSK.y , ctx);						// mul the y*A = B
+	ret = EC_POINT_copy( &(Credential->CapitalA) , point1 );
+	if ( !ret ) goto err;
+	/* 1 end */
+
+	/* 2 mul the y*A  = point1 - > B */
+	ret = EC_POINT_mul(group, point1, NULL, &(Credential->CapitalA) , IssuerKey->IssuerSK.y , Context);
 	if ( !ret ) goto err;
 
-	//	(x*A + rxy*F)- C
-	ret = EC_POINT_mul(group, XA, NULL, A , IssuerKey->IssuerSK.x , ctx);						// mul the x*A = XA
+	ret = EC_POINT_copy( &(Credential->CapitalB) , point1);
+	if ( !ret ) goto err;
+	/* 2 end */
+
+	/* 3  (x*A + rxy*F)- C */
+	/* mul the x*A = point1 */
+	ret = EC_POINT_mul(group, point1, NULL, &(Credential->CapitalA) , IssuerKey->IssuerSK.x , Context);
 	if ( !ret ) goto err;
 
-	ret = BN_mul(xy , IssuerKey->IssuerSK.x , IssuerKey->IssuerSK.y  , ctx);					// mul the x*y = xy
+	/* mul the x*y = xy */
+	ret = BN_mul(xy , IssuerKey->IssuerSK.x , IssuerKey->IssuerSK.y  , Context);
 	if ( !ret ) goto err;
 
-	ret = BN_mul(rxy , r , xy  , ctx);															// mul the r*xy = rxy
+	/* mul the r*xy = r'*/
+	ret = BN_mul(r , r , xy  , Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_mul(group, RXYF, NULL, &(IssuerJoinSession->CapitalF) , rxy , ctx);			// mul the rxy*F = RXYF
+	/* mul the r'*F = point2 */
+	ret = EC_POINT_mul(group, point1, NULL, &(IssuerJoinSession->CapitalF) , r , Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_add(group, C, XA, RXYF, ctx);
+	/* point2 + point1 -> C*/
+	ret = EC_POINT_add(group, Ctemp, point2, point1, Context);
 	if ( !ret ) goto err;
 
-	//	(A，B，C) - cre   ://
-	ret = EC_POINT_copy( &(Credential->CapitalA) , A);
+	ret = EC_POINT_copy( &(Credential->CapitalC) , Ctemp);
 	if ( !ret ) goto err;
+	/* 3 end */
 
-	ret = EC_POINT_copy( &(Credential->CapitalB) , B);
-	if ( !ret ) goto err;
+	/*	Eek(cre)[A.B.C] -> buffer -> encrypted_oct -> EncyptedCred - >TPM */
 
-	ret = EC_POINT_copy( &(Credential->CapitalC) , C);
-	if ( !ret ) goto err;
+	/* malloc the buffer , encrypted_oct and (*EncyptedCred) */
 
-//	A = NULL;// TODO FREE
-//	B = NULL;
-//	C = NULL;
+	buffer = OPENSSL_malloc(buffer_len * sizeof(BYTE));
+	encrypted_oct = OPENSSL_malloc(( RSA_MODLE_LENGTH/8 + 1) );
+	(*EncyptedCred) = OPENSSL_malloc(( RSA_MODLE_LENGTH/8 * 3 +1) );
 
-	//	Eek(cre) - ε
-	//	ε - TPM
-	ahex = EC_POINT_point2hex(group , &(Credential->CapitalA) , from , ctx);// ec_GFp_simple_point2oct
-	if ( !ahex ) goto err;
+	/* malloc end*/
 
-	bhex = EC_POINT_point2hex(group , &(Credential->CapitalB) , from , ctx);
-	if ( !bhex ) goto err;
+	/*1  cre.A -> buffer */
+	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalA), from, buffer, buffer_len,  Context);
+	if ( !oct_len ) goto err;
+	/*1  buffer -> encrypted_oct*/
+	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
+		if (ret == -1)
+			goto err;
+	/*1  encrypted_oct - > EncyptedCred*/
+	for (i=0;i<RSA_MODLE_LENGTH/8;i++)
+		{
+			if ( ( i+ret ) >= (RSA_MODLE_LENGTH/8 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODLE_LENGTH/8 - 1) ];
+			else
+				*EncyptedCred[i] = 0;
+		}
 
-	chex = EC_POINT_point2hex(group , &(Credential->CapitalC) , from , ctx);
-	if ( !chex ) goto err;
-																	//  here len(ahex)==len(abex)==len(chenx)?
-	HEX_LENGTH = strlen(ahex);
+	/*2  cre.B -> buffer */
+	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalB), from, buffer, buffer_len,  Context);
+	if ( !oct_len ) goto err;
+	/*2  buffer -> encrypted_oct*/
+	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
+		if (ret == -1)
+			goto err;
+	/*2  encrypted_oct - > EncyptedCred*/
+	for (i=RSA_MODLE_LENGTH/8;i<RSA_MODLE_LENGTH/4;i++)
+		{
+			if ( ( i+ret ) >= (RSA_MODLE_LENGTH/4 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODLE_LENGTH/4 - 1) ];
+			else
+				*EncyptedCred[i] = 0;
+		}
+	/*3  cre.C -> buffer */
+	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalC), from, buffer, buffer_len,  Context);
+	if ( !oct_len ) goto err;
+	/*3  buffer -> encrypted_oct*/
+	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
+		if (ret == -1)
+			goto err;
+	/*3  encrypted_oct - > EncyptedCred*/
+	for (i=RSA_MODLE_LENGTH/8;i<RSA_MODLE_LENGTH/8*3;i++)
+		{
+			if ( ( i+ret ) >= (RSA_MODLE_LENGTH/8*3 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODLE_LENGTH/8*3 - 1) ];
+			else
+				*EncyptedCred[i] = 0;
+		}
 
-	*EncyptedCred[0] = 0x00;
-	// encrypt ahex in aenc and put in EncyptedCred
-	rv = RSA_public_encrypt( HEX_LENGTH, ahex , aenc , rsa , RSA_NO_PADDING);
-	if (rv == -1)
-		goto err;
-	for (i=1;i<=RSA_BYTES_LEN;i++)
-	{
-		if ( ( i+rv ) > RSA_BYTES_LEN ) *EncyptedCred[i] = aenc[ ( i+rv ) - RSA_BYTES_LEN ];
-		else
-			*EncyptedCred[i] = 0;
-	}
-	// encrypt bhex in benc and put in EncyptedCred
-	rv = RSA_public_encrypt( HEX_LENGTH, bhex , benc , rsa , RSA_NO_PADDING);
-	if (rv == -1)
-		goto err;
-	for (i=1;i<=RSA_BYTES_LEN;i++)
-	{
-		if ( ( i+rv ) > RSA_BYTES_LEN ) *EncyptedCred[i + RSA_BYTES_LEN] = aenc[ ( i+rv ) - RSA_BYTES_LEN ];
-		else
-			*EncyptedCred[i + RSA_BYTES_LEN] = 0;
-	}
-	// encrypt chex in cenc and put in EncyptedCred
-	rv = RSA_public_encrypt( HEX_LENGTH, bhex , cenc , rsa , RSA_NO_PADDING);
-	if (rv == -1)
-		goto err;
-	for (i=1;i<=RSA_BYTES_LEN;i++)
-	{
-		if ( ( i+rv ) > RSA_BYTES_LEN ) *EncyptedCred[i + RSA_BYTES_LEN*2 ] = aenc[ ( i+rv ) - RSA_BYTES_LEN ];
-		else
-			*EncyptedCred[i + RSA_BYTES_LEN*2 ] = 0;
-	}
 
-	*EncyptedCredLength = RSA_BYTES_LEN * 3;
+	*EncyptedCredLength = RSA_MODLE_LENGTH/8 * 3;
 
-//	BN_CTX_free(ctx);
+
+	RSA_free(rsa);
+
 	bi_free(r);
 	bi_free(xy);
-	bi_free(rxy);
-	EC_POINT_free(SP1);
-	EC_POINT_free(CF);
-	EC_POINT_free(UP);
-	if ( A ) EC_POINT_free(A);// TODO UNDO CHECK
-	if ( B ) EC_POINT_free(B);
-	if ( C ) EC_POINT_free(C);
-	EC_POINT_free(XA);
-	EC_POINT_free(RXYF);
+	bi_free(order);
 
-	if ( ahex ) OPENSSL_free(ahex);
-	if ( bhex ) OPENSSL_free(bhex);
-	if ( chex ) OPENSSL_free(chex);
-	if ( aenc ) OPENSSL_free(aenc);
-	if ( benc ) OPENSSL_free(benc);
-	if ( cenc ) OPENSSL_free(cenc);
+	EC_POINT_free(point1);
+	EC_POINT_free(point2);
+	EC_POINT_free(UPrime);
+	EC_POINT_free(Ctemp);
 
-	if (rsa) RSA_free(rsa);
+	OPENSSL_free(buffer);
+	OPENSSL_free(encrypted_oct);
+	OPENSSL_free((*EncyptedCred));
+
 
 	return 1;
 err:
-	BN_CTX_free(ctx);
-	bi_free(r);
-	bi_free(xy);
-	bi_free(rxy);
-	EC_POINT_free(SP1);
-	EC_POINT_free(CF);
-	EC_POINT_free(UP);// TODO
-	if ( A ) EC_POINT_free(A);
-	if ( B ) EC_POINT_free(B);
-	if ( C ) EC_POINT_free(C);
-	EC_POINT_free(XA);
-	EC_POINT_free(RXYF);
+	RSA_free(rsa);
 
-	if (rsa) RSA_free(rsa);
+	if (r)  bi_free(r);
+	if (xy) bi_free(xy);
+	if (order) bi_free(order);
 
-	if ( ahex ) OPENSSL_free(ahex);
-	if ( bhex ) OPENSSL_free(bhex);
-	if ( chex ) OPENSSL_free(chex);
-	if ( aenc ) OPENSSL_free(aenc);
-	if ( benc ) OPENSSL_free(benc);
-	if ( cenc ) OPENSSL_free(cenc);
+	if (point1) EC_POINT_free(point1);
+	if (point2) EC_POINT_free(point2);
+	if (UPrime) EC_POINT_free(UPrime);
+	if (Ctemp)  EC_POINT_free(Ctemp);
+
+	if ( buffer ) OPENSSL_free(buffer);
+	if ( encrypted_oct ) OPENSSL_free(encrypted_oct);
 	if ( (*EncyptedCred) ) OPENSSL_free((*EncyptedCred));
-
 
 	return 0;
 }
