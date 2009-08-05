@@ -128,7 +128,7 @@ int COMP_cmp( COMPLEX *a, COMPLEX *b )
 	if ( a == NULL || b == NULL )
 		return -1;
 
-	if ( BN_cmp( a->x, b->x ) || BN_cmp(a->y, b->y))
+	if ( BN_cmp( &a->x, &b->x ) || BN_cmp(&a->y, &b->y))
 		return 1;
 
 	return 0;
