@@ -86,8 +86,10 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if ( rsa == NULL )
 		goto err;
 	// TODO secret key of Ek and Publick key of EK
+#if 0
 	rsa->n = bi_set_as_nbin(  PlatformEndorsementPubkeyLength, PlatformEndorsementPubKey );
 	rsa->d = bi_set_as_nbin( PlatformEndorsementSkeyLength, PlatformEndorsementSKey );
+#endif
     if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 
@@ -301,7 +303,9 @@ int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
 	/* 1. Eek-1 (ε) -> cre   : */
 	// TODO secret key of Ek
 	rsa->n = bi_set_as_nbin(  PlatformEndorsementPubkeyLength, PlatformEndorsementPubKey );
+#if 0
 	rsa->d = bi_set_as_nbin( PlatformEndorsementSkeyLength, PlatformEndorsementSKey );
+#endif
     if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 
@@ -318,8 +322,8 @@ int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
 	*CredentialLength = 6 * field_len;
 
 	EC_POINT_hex2point( group, *Credential, A, Context);
-	EC_POINT_hex2point( group, ( *Credential + field ), B, Context);
-	EC_POINT_hex2point( group, ( *Credential + field * 2 ), C, Context);
+	EC_POINT_hex2point( group, ( *Credential + field_len ), B, Context);
+	EC_POINT_hex2point( group, ( *Credential + field_len * 2 ), C, Context);
 
 	// 2. f*B -> E   :// ?
 	/* f * B */
@@ -414,7 +418,7 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 	{
 		/* 3. H2(f||bsn) -> r'   : */
 		buf = bi_2_nbin( &buf_len, TpmJoinSession->f );
-		rv = EVP_DigestUpdate_ex( &mdctx, buf, buf_len );
+		rv = EVP_DigestUpdate( &mdctx, buf, buf_len );
 		OPENSSL_free( buf );
 		if ( !rv )
 			goto err;
