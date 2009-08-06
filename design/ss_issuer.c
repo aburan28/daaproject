@@ -19,13 +19,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <openssl/ec.h>
+#include <string.h>
 
 int TSS_DAA_JOIN_issuer_setup(
                               TSS_DAA_ISSUER_KEY *   IssuerKey,
                               TSS_DAA_ISSUER_PROOF * IssuerProof)
 {
 	bi_ptr x = NULL , y = NULL , order = NULL , bi = NULL , bi_res = NULL;
-	EC_POINT *P1 = NULL , *P2 = NULL , point = NULL;
+	EC_POINT *P1 = NULL , *P2 = NULL , *point = NULL;
 	int ret;
 
 	if ( !(IssuerKey->IssuerPK.CapitalX) ||
@@ -127,7 +128,7 @@ int TSS_DAA_JOIN_issuer_init(
 	BYTE  *hex_ni = NULL , *eni_st = NULL;
 	UINT32 hex_ni_len;
 
-	if ( !(IssuerJoinSession.IssuerNone) )  return 0;
+	if ( !(IssuerJoinSession->IssuerNone) )  return 0;
 
 	/* 1.	{0,1}t -> nI */
 	ni = bi_new_ptr();
@@ -135,10 +136,10 @@ int TSS_DAA_JOIN_issuer_init(
 		return 0;
 
 	bi_urandom(ni , NONCE_LENGTH );
-	bi_set( IssuerJoinSession.IssuerNone, ni);
+	bi_set( IssuerJoinSession->IssuerNone, ni);
 
 	/* built the final commreq */
-	eni_st = OPENSSL_malloc(( RSA_MODLE_LENGTH / 8 + 1) );
+	eni_st = OPENSSL_malloc(( RSA_MODULE_LENGTH / 8 + 1) );
 	if (!eni_st) goto err;
 
 	/* change ni to hex_ni */
@@ -187,10 +188,9 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 {
 
 	point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
-	BN_CTX   *ctx = NULL;
-	EC_POINT *Ctemp = NULL , point1 = NULL , point2 = NULL ,  UPrime = NULL;;
+	EC_POINT *Ctemp = NULL ,*point1 = NULL , *point2 = NULL ,  *UPrime = NULL;;
 	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL ;
-	char     buffer = NULL , encrypted_oct = NULL;
+	char     *buffer = NULL , *encrypted_oct = NULL;
 	int      i , ret , oct_len , e_size = 3 , buffer_len = 1024;
 	RSA      *rsa = NULL;
 	unsigned char exp[] = { 0x01, 0x00, 0x01 };
@@ -298,57 +298,57 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	/* malloc the buffer , encrypted_oct and (*EncyptedCred) */
 
 	buffer = OPENSSL_malloc(buffer_len * sizeof(BYTE));
-	encrypted_oct = OPENSSL_malloc(( RSA_MODLE_LENGTH/8 + 1) );
-	(*EncyptedCred) = OPENSSL_malloc(( RSA_MODLE_LENGTH/8 * 3 +1) );
+	encrypted_oct = OPENSSL_malloc(( RSA_MODULE_LENGTH/8 + 1) );
+	(*EncyptedCred) = OPENSSL_malloc(( RSA_MODULE_LENGTH/8 * 3 +1) );
 
 	/* malloc end*/
 
 	/*1  cre.A -> buffer */
-	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalA), from, buffer, buffer_len,  Context);
+	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalA), form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*1  buffer -> encrypted_oct*/
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
 		if (ret == -1)
 			goto err;
 	/*1  encrypted_oct - > EncyptedCred*/
-	for (i=0;i<RSA_MODLE_LENGTH/8;i++)
+	for (i=0;i<RSA_MODULE_LENGTH/8;i++)
 		{
-			if ( ( i+ret ) >= (RSA_MODLE_LENGTH/8 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODLE_LENGTH/8 - 1) ];
+			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/8 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/8 - 1) ];
 			else
 				*EncyptedCred[i] = 0;
 		}
 
 	/*2  cre.B -> buffer */
-	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalB), from, buffer, buffer_len,  Context);
+	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalB), form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*2  buffer -> encrypted_oct*/
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
 		if (ret == -1)
 			goto err;
 	/*2  encrypted_oct - > EncyptedCred*/
-	for (i=RSA_MODLE_LENGTH/8;i<RSA_MODLE_LENGTH/4;i++)
+	for (i=RSA_MODULE_LENGTH/8;i<RSA_MODULE_LENGTH/4;i++)
 		{
-			if ( ( i+ret ) >= (RSA_MODLE_LENGTH/4 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODLE_LENGTH/4 - 1) ];
+			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/4 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/4 - 1) ];
 			else
 				*EncyptedCred[i] = 0;
 		}
 	/*3  cre.C -> buffer */
-	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalC), from, buffer, buffer_len,  Context);
+	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalC), form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*3  buffer -> encrypted_oct*/
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
 		if (ret == -1)
 			goto err;
 	/*3  encrypted_oct - > EncyptedCred*/
-	for (i=RSA_MODLE_LENGTH/8;i<RSA_MODLE_LENGTH/8*3;i++)
+	for (i=RSA_MODULE_LENGTH/8;i<RSA_MODULE_LENGTH/8*3;i++)
 		{
-			if ( ( i+ret ) >= (RSA_MODLE_LENGTH/8*3 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODLE_LENGTH/8*3 - 1) ];
+			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/8*3 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/8*3 - 1) ];
 			else
 				*EncyptedCred[i] = 0;
 		}
 
 
-	*EncyptedCredLength = RSA_MODLE_LENGTH/8 * 3;
+	*EncyptedCredLength = RSA_MODULE_LENGTH/8 * 3;
 
 
 	RSA_free(rsa);

@@ -34,7 +34,7 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 int TSS_DAA_SIGN_tpm_sign(
 		                  TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 						  BYTE *  Msg,
-						  BYTE *  MsgLength,
+						  UINT32  MsgLength,
 		                  BYTE *  ChPrime,
                           UINT32  ChPrimeLength,
                           BYTE **  Noncetpm,
