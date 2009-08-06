@@ -16,7 +16,7 @@ COMPLEX *COMP_new( void )
 {
 	COMPLEX * ret;
 
-	ret = ( COMPLEX * )OPENSSL_malloc( sizeof( COMPLEX ) );
+	ret = ( COMPLEX * )malloc( sizeof( COMPLEX ) );
 	if ( !ret )
 		return NULL;
 

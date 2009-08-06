@@ -283,9 +283,11 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 		goto err;
 
 	// 6. H3 (ipk||bsn||A'||B'||C'||D'||E'||ρa'||ρb'||ρc'||т||nv) -> c'   :// EVP_Digest_Final
-	compute_sign_change(hash,
+	compute_sign_challenge(hash,
+			            &hash_len,
 						IssuerPK,
 						BSN,
+						strlen( BSN ),
 						&(DaaSignature->CapitalAPrime),
 						&(DaaSignature->CapitalBPrime),
 						&(DaaSignature->CapitalCPrime),

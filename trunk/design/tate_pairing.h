@@ -9,6 +9,7 @@
 #define TATE_PAIRING_H_
 
 #include "complex.h"
+#include "daa.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -21,7 +22,8 @@ extern "C" {
 // Using SHA-1 as basic hash algorithm
 
 #define HASH_LEN 20
-EC_GROUP ec_group;
+EC_GROUP *ec_group;
+BIGNUM *module;
 //
 // Tate Pairing Code
 //
@@ -32,8 +34,8 @@ void extract(EC_POINT *A, BIGNUM *x, BIGNUM *y)
 {
     //x=(A.get_point())->X;
     //y=(A.get_point())->Y;
-	BN_copy(x, A->x);
-	BN_copy(y, A->y);
+	BN_copy(x, &A->X);
+	BN_copy(y, &A->Y);
 }
 
 //
@@ -46,7 +48,7 @@ void extract(EC_POINT *A, BIGNUM *x, BIGNUM *y)
 // On subsequent passes these values ( total < 500 ) are "played back"
 //
 
-void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL precomp, BIGNUM *store, int *ptr)
+void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int precomp, BIGNUM *store, int *ptr)
 {
     int type;
     /*ZZn  lam,x,y,m,nx;
@@ -55,6 +57,11 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL pr
     if (num.iszero()) return;
     */
     BIGNUM lam, x, y, m, nx;
+    COMPLEX *u, *tmp;
+
+    u = COMP_new();
+    tmp = COMP_new();
+    BN_set_word(&nx, 0l);
     /*if (!precomp)
     { // Store line start point and slope.
       // Evaluate line from A, and then evaluate vertical through destination
@@ -76,28 +83,32 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL pr
 // TODO ADD POINT and get the slope of line
 
     	/*store values in store[]  */
-    	BN_copy( &store[ptr++], &x );
-    	BN_copy( &store[ptr++], &y );
-    	BN_copy( &store[ptr++], &lam );
+    	BN_copy( &store[*(ptr++)], &x );
+    	BN_copy( &store[*(ptr++)], &y );
+    	BN_copy( &store[*(ptr++)], &lam );
 
     	if ( !type )
     		return ;
 
-    	BN_mod_sub( &m, &Qx, &x, &ec_group->field, Context);
+    	BN_mod_sub( &m, Qx, &x, &ec_group->field, Context);
     	BN_mod_mul( &m, &m, &lam, &ec_group->field, Context);
 
     	//TODO define function sub_big
     	//Sub_Big( &u, &Qy, &y, ec_group->field, Context);
         //SubBig( &u, &u, &m, ec_group->field, Context);
+    	COMP_set(tmp, &nx, &y, module );
+    	COMP_sub(u, Qy, tmp, module );
+    	COMP_set(tmp, &nx, &m, module );
+    	COMP_mul(u, u, tmp, module);
 
     }
     else
     {
-    	BN_copy(&x, &store[ptr++]);
-    	BN_copy(&y, &store[ptr++]);
-    	BN_copy(&lam, &store[ptr++]);
+    	BN_copy(&x, &store[*(ptr++)]);
+    	BN_copy(&y, &store[*(ptr++)]);
+    	BN_copy(&lam, &store[*(ptr++)]);
 
-    	BN_mod_sub( &m, &Qx, &x, &ec_group->field, Context);
+    	BN_mod_sub( &m, Qx, &x, &ec_group->field, Context);
     	BN_mod_mul( &m, &m, &lam, &ec_group->field, Context);
 
     	//TODO define function sub_big
@@ -105,7 +116,7 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL pr
         //SubBig( &u, &u, &m, ec_group->field, Context);
 
     }
-    Mul( num, num, &u, &ec_group->field);
+    COMP_mul( num, num, &u, &ec_group->field);
     /*else
     { // extract precalculated values from the store.... - nx is a peek ahead
         x=store[ptr++]; y=store[ptr++]; lam=store[ptr++]; nx=store[ptr];
@@ -135,7 +146,7 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, BOOL pr
 // precomputed ZZn's (about 500 of them).
 //
 
-int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL precomp,BIGNUM *store, COMPLEX *res)
+int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, int precomp,BIGNUM *store, COMPLEX *res)
 {
     /*int i,ptr=0;
     Big p;
@@ -190,36 +201,36 @@ int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, BOOL pre
 	ret = EC_POINT_copy(&A, P);
 	for ( i = 0; i< 42; i++ )
 	{
-		Mul( res, res, res, q);
-		g(&A, &A, Qx, Qy, res, precomp, store, ptr);
+		COMP_mul( res, res, res, q);
+		g(&A, &A, Qx, Qy, res, precomp, store, &ptr);
 	}
-	g(&A, &A, Qx, Qy, res, precomp, store, ptr);
+	g(&A, &A, Qx, Qy, res, precomp, store, &ptr);
 
 	for ( i = 0; i < 17; i++ )
 	{
-		Mul( res, res, res, q);
-		g(&A, &A, Qx, Qy, res, precomp, store, ptr);
+		COMP_mul( res, res, res, q);
+		g(&A, &A, Qx, Qy, res, precomp, store, &ptr);
 	}
-	g(&A, &A, Qx, Qy, res, precomp, store, ptr);
+	g(&A, &A, Qx, Qy, res, precomp, store, &ptr);
 
-	if (complex_iszero( res ))
+	if (COMP_is_zero( res ))
 		return 0;
 	if ( !precomp)
 	{
-		if (!EC_POINT_is_at_infinity(&ec_group, A))
+		if (!EC_POINT_is_at_infinity(ec_group, &A))
 			return 0;
 	}
 
 	ret = BN_copy( &p, &ec_group->field );
 
-	BN_add_word( &p, &p, 1);
+	BN_add_word( &p, 1);
 	BN_div(&p, NULL, &p, q, Context);
-	Pow( res, res, &p, &ec_group->field);
+	COMP_pow( res, res, &p, &ec_group->field);
 
 	COMP_init( &con_res );
-	Conj( &con_res, res, &ec_group->field);
-	Div( res, &con_res, res, &ec_group->field);
-	if(complex_iszero ( res ))
+	COMP_conj( &con_res, res, &ec_group->field);
+	COMP_div( res, &con_res, res, &ec_group->field);
+	if(COMP_is_zero ( res ))
 		return 0;
 	return 1;
 
@@ -234,9 +245,20 @@ int  Tate(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, C
     BIGNUM  Qx;
     COMPLEX Qy;
     BIGNUM xx,yy;
-    int ret;
+    int ret, rv;
 
-    ret = EC_POINT_get_affine_coordinates_GFp(&ec_group, Q, &xx, &yy, Context);
+    ec_group = group;
+
+	/* Get group module p */
+	module = bi_new_ptr();
+	if ( module == NULL )
+		goto err;
+	rv = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); //return 1 if success
+	if ( !rv )
+		goto err;
+
+
+    ret = EC_POINT_get_affine_coordinates_GFp(ec_group, Q, &xx, &yy, Context);
     /*
     Qx=-xx;
     Qy.set((Big)0,yy);
@@ -246,16 +268,19 @@ int  Tate(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, C
 	else
 		BN_set_negative( &xx, 1 );
 
-	if (!BN_copy(Qx, &xx))
+	if (!BN_copy(&Qx, &xx))
 		return 0;
 
 	BN_set_word(&xx, 0);
 	// TODO set funtion
 	//Set(&Qy, &xx, &yy);
-	BN_copy(&Qy->x, &xx);
-	BN_copy(&Qy->y, &yy);
+	BN_copy(&Qy.x, &xx);
+	BN_copy(&Qy.y, &yy);
 
-    return fast_tate_pairing(P, Qx, Qy, order, precomp, store, res);
+    return fast_tate_pairing(P, &Qx, &Qy, order, precomp, store, res);
+
+    err:
+    return 0;
 
 }
 
@@ -291,10 +316,10 @@ int  Tate(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, C
 //    return h;
 //}
 
-Big H1(char *string)
+BIGNUM H1(char *string)
 { // Hash a zero-terminated string to a number < modulus
     BIGNUM h,p;
-    BIGNUM *moudle = NULL;
+    //BIGNUM *moudle = NULL;
     char hash[HASH_LEN];
     int i, j, hash_len, rv;
 
@@ -313,7 +338,7 @@ Big H1(char *string)
     for (i=0;;i++)
     {
         if (string[i]==0) break;
-    	rv = EVP_DigestUpdate(&mdctx,  string[i] , 1 );			//  1
+    	rv = EVP_DigestUpdate(&mdctx,  &string[i] , 1 );			//  1
     	if (!rv)
     		goto err;
     }
@@ -322,13 +347,6 @@ Big H1(char *string)
 	if ( !rv || &hash_len <= 0 )
 		goto err;
 
-	/* Get group module p */
-	module = bi_new_ptr();
-	if ( module == NULL )
-		goto err;
-	rv = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); //return 1 if success
-	if ( !rv )
-		goto err;
 
 	BN_set_word( &h, 1l);
     j=0; i=1;
@@ -344,7 +362,7 @@ Big H1(char *string)
         }
         else
         {
-        	BN_add_word( &h, s[j]);
+        	BN_add_word( &h, hash[j]);
         	j++;
         }
 
@@ -365,7 +383,7 @@ err:
 
     EVP_MD_CTX_cleanup(&mdctx);
 
-    return NULL;
+    //return NULL;
 }
 
 //int H2(ZZn2 x,char *s)
@@ -396,7 +414,7 @@ err:
 int H2(COMPLEX *x,char *s)
 { // Hash an Fp2 to an n-byte string s[.]. Return n
     BIGNUM a,b;
-    int m, ret;
+    int m, ret, rv;
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
 
@@ -423,7 +441,7 @@ int H2(COMPLEX *x,char *s)
 
     	BN_div_word( &a, 256l);//TODO
     }
-    while (b>0)
+    while ( BN_is_negative( &b ))
     {
     	m = BN_mod_word( &b, 256l);
     	rv = EVP_DigestUpdate(&mdctx,  m, sizeof( m ) );			//  1
@@ -491,6 +509,7 @@ EC_POINT *map_to_point(char *ID)
 {
     EC_POINT *Q;
     BIGNUM x0 = H1( ID ), *module;
+    int rv;
 
     Q = EC_POINT_new( group );
     if ( Q == NULL )

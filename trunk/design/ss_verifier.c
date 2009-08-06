@@ -7,12 +7,13 @@
 
 #include "ss_verifier.h"
 #include "tate_pairing.h"
+#include <string.h>
 
 int compute_sign_challenge (BYTE *res ,
 		UINT32 * reslen ,
 		TSS_DAA_ISSUER_PK  * IssuerPK ,
 		BYTE *  VerifierBasename,
-		UINT32  VerifierBasenameLength,,
+		UINT32  VerifierBasenameLength,
 		ECC_POINT *  CapitalA,
 		ECC_POINT *  CapitalB ,
 		ECC_POINT *  CapitalC ,
@@ -24,11 +25,11 @@ int compute_sign_challenge (BYTE *res ,
 		COMPLEX * t ,
 		bi_ptr nv)
 {
-	EVP_MD * digest = NULL;
+	EVP_MD     *digest = NULL;
 	EVP_MD_CTX mdctx;
-	UINT32 buf_len;
-	BYTE * buf = NULL;
-	int rv;
+	int        buf_len;
+	char       *buf = NULL;
+	int        rv;
 
 	if (  !res || !VerifierBasename || VerifierBasenameLength  <= 0 ) return 0;
 
@@ -242,11 +243,11 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 							     UINT32  VerifierBasenameLength,
 							     BYTE   * Msg,
 							     UINT32   MsgLength,
-                                 UINT32 * IsCorrect)
+                                 UINT32 * IsCorrect )
 {
-	COMPLEX *res1 = NULL , *res2 = NULL , *res3 = NULL , pta = NULL , ptb = NULL , ptc = NULL , rt = NULL;
+	COMPLEX *res1 = NULL , *res2 = NULL , *res3 = NULL , *pta = NULL , *ptb = NULL , *ptc = NULL , *rt = NULL;
 	bi_ptr module = NULL ;
-	ECC_POINT * SB = NULL , CE = NULL , DT = NULL;
+	ECC_POINT *SB = NULL , *CE = NULL , *DT = NULL;
 	BYTE  hash[DAA_HASH_SHA1_LENGTH] , final_hash[DAA_HASH_SHA1_LENGTH] , * buf = NULL;
 	UINT32 hashlen , final_hashlen ,  buf_len;
 	BIGNUM store[500];
@@ -322,7 +323,7 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	ret = EC_POINT_mul(group, SB , NULL, &(DaaSignature->CapitalBPrime) , DaaSignature->s, Context);
 	if (!ret) goto err;
 
-	ret = EC_POINT_mul(group, CE , NULL, &(DaaSignature->CapitalEPrimeCapitalBprime) , DaaSignature->ch, Context);
+	ret = EC_POINT_mul(group, CE , NULL, &(DaaSignature->CapitalEPrime) , DaaSignature->ch, Context);
 	if (!ret) goto err;
 
 	ret = EC_POINT_invert(group, CE, Context);					/* use  EC_POINT_invert to updown CF so can add it */

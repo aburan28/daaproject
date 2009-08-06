@@ -194,5 +194,20 @@ typedef struct tdSignature
 		//unsigned int *encryptedDataLen, /* out */
 		//unsigned char *publicKey,
 		//unsigned int keysize);
+int compute_sign_challenge (BYTE *res ,
+		UINT32 * reslen ,
+		TSS_DAA_ISSUER_PK  * IssuerPK ,
+		BYTE *  VerifierBasename,
+		UINT32  VerifierBasenameLength,
+		ECC_POINT *  CapitalA,
+		ECC_POINT *  CapitalB ,
+		ECC_POINT *  CapitalC ,
+		ECC_POINT *  CapitalD ,
+		ECC_POINT *  CapitalE ,
+		COMPLEX * pa ,
+		COMPLEX * pb ,
+		COMPLEX * pc ,
+		COMPLEX * t ,
+		bi_ptr nv);
 
 #endif
