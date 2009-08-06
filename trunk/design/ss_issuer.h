@@ -15,9 +15,6 @@
 #define RSA_MODLE_LENGTH 2048
 #endif
 
-#ifndef Kk
-#define Kk "islab"
-#endif
 
 // Built issuer parameters
 int TSS_DAA_JOIN_issuer_setup(

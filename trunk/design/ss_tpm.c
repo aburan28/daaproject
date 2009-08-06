@@ -6,6 +6,7 @@
  */
 
 #include "ss_tpm.h"
+#include <string.h>
 
 int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
                                     UINT32 EncryptedNonceOfIssuerLength,
@@ -20,8 +21,8 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 
 	BYTE     *buf = NULL , str[DAA_HASH_SHA1_LENGTH] , hash[DAA_HASH_SHA1_LENGTH];
 	BYTE     exp[] = { 0x01 };
-	UINT32   DaaSeed, buf_len, str_len, hash_len;
-	int      rv, e_size = 1;
+	UINT32   DaaSeed;
+	int      buf_len,str_len, hash_len, rv, e_size = 1;
 
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
@@ -96,7 +97,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 
 	buf_len = RSA_private_decrypt(EncryptedNonceOfIssuerLength, EncryptedNonceOfIssuer,
 									buf, rsa, RSA_NO_PADDING);
-	if ( !ret )
+	if ( buf_len <= 0 )
 	{
 		OPENSSL_free( buf );
 
@@ -146,7 +147,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 
 	EC_POINT_mul(group, U, NULL, IssuerPK->Eccparmeter.CapitalP1 , u, Context);
 	/* f mul P1 and assign to  F */
-	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , fn, Context);
+	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , f, Context);
 
 																			// 4:  H1(str||F||U) -> c   :// EVP_Digst_Final
 	rv = EVP_DigestUpdate(&mdctx,  str , str_len );     // str release
@@ -201,7 +202,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	bi_mod( s, s, module );
 
 	/* 6:  (F，c，s) -> comm. */
-	rv = EC_POINT_copy(IssuerJoinSession->CapitalF , F);
+	rv = EC_POINT_copy( &(IssuerJoinSession->CapitalF), F);
 	if ( !rv )
 		goto err;
 
@@ -324,10 +325,10 @@ int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
 	/* f * B */
 	EC_POINT_mul(group, E, NULL, B , TpmJoinSession->f, Context );	// mul the F
 	*CapitalE =  EC_POINT_point2hex( group, E, POINT_CONVERSION_UNCOMPRESSED, Context);
-	if ( !*Capital )
+	if ( !*CapitalE )
 		goto err;
 
-	*CaptialELength = strlen( *CapitalE );
+	*CapitalELength = strlen( *CapitalE );
 
 	/* TpmJoinSession->B = B */
 	TpmJoinSession->B = EC_POINT_new( group );
@@ -374,7 +375,7 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 	bi_ptr module = NULL , r_prime = NULL , v = NULL , mul = NULL;
 	BYTE * buf = NULL , hash[DAA_HASH_SHA1_LENGTH +1];
 	UINT32 hash_len, buf_len;
-	int field_len, ret;
+	int field_len, ret, rv;
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
 
@@ -486,7 +487,7 @@ err:
 int TSS_DAA_SIGN_tpm_sign(
 		                  TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 						  BYTE *  Msg,
-						  BYTE *  MsgLength,
+						  UINT32  MsgLength,
 		                  BYTE *  ChPrime,
                           UINT32  ChPrimeLength,
                           BYTE **  Noncetpm,
@@ -499,7 +500,7 @@ int TSS_DAA_SIGN_tpm_sign(
 	bi_ptr nt = NULL, c = NULL, mul = NULL, module = NULL;
 	BYTE   hash[DAA_HASH_SHA1_LENGTH + 1];
 	UINT32 hash_len;
-	int    rv;
+	int    rv, i;
 
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
@@ -516,7 +517,7 @@ int TSS_DAA_SIGN_tpm_sign(
 		goto err;
 	bi_urandom( nt, NONCE_LENGTH);
 
-	*Noncetpm = bi_2_nbin( NoncetpmLength , nt);
+	*Noncetpm = bi_2_nbin( (int *)NoncetpmLength , nt);
 	if ( *NoncetpmLength <= 0 )
 		goto err;
 

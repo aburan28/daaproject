@@ -36,13 +36,17 @@ typedef EC_POINT ECC_POINT;
 #define DAA_HASH_SHA1_LENGTH   		   20
 #endif
 
-#ifndef RSA_MODLE_LENGTH
-#define RSA_MODLE_LENGTH 2048
+#ifndef RSA_MODULE_LENGTH
+#define RSA_MODULE_LENGTH 2048
 #endif
 
 #define DAA_SIGN_MESSAGE "whuislab"
 
 #define BSN "whu"
+
+
+#define Kk "islab"
+
 
 // define length end
 
