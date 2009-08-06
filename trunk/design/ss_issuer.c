@@ -125,8 +125,8 @@ int TSS_DAA_JOIN_issuer_init(
 	int rv, e_size = 3;
 	RSA *rsa = NULL;
 	bi_ptr ni = NULL;
-	BYTE  *hex_ni = NULL , *eni_st = NULL;
-	UINT32 hex_ni_len;
+	BYTE  *nbin_ni = NULL , *eni_st = NULL;
+	UINT32 nbin_ni_len;
 
 	if ( !(IssuerJoinSession->IssuerNone) )  return 0;
 
@@ -142,9 +142,9 @@ int TSS_DAA_JOIN_issuer_init(
 	eni_st = OPENSSL_malloc(( RSA_MODULE_LENGTH / 8 + 1) );
 	if (!eni_st) goto err;
 
-	/* change ni to hex_ni */
-	hex_ni = bi_2_hex_char( ni );// bi_2_nbin() and check
-	hex_ni_len = strlen( hex_ni );
+	/* change ni to nbin_ni */
+	nbin_ni = bi_2_nbin(nbin_ni_len, ni);
+	if (!nbin_ni) goto err;
 
 	rsa = RSA_new();
 	if (!rsa) goto err;
@@ -154,7 +154,7 @@ int TSS_DAA_JOIN_issuer_init(
     	goto err;
 
     /* nI -> commreq */
-	rv = RSA_public_encrypt( hex_ni_len, hex_ni , eni_st , rsa , RSA_NO_PADDING);
+	rv = RSA_public_encrypt( nbin_ni_len, nbin_ni , eni_st , rsa , RSA_NO_PADDING);
 	if (rv == -1)
 		goto err;
 
@@ -165,7 +165,7 @@ int TSS_DAA_JOIN_issuer_init(
 
 	bi_free(ni);
 	RSA_free(rsa);
-	if (hex_ni) OPENSSL_free(hex_ni);
+	if (nbin_ni) OPENSSL_free(nbin_ni);
 
 	return 1;
 
@@ -173,7 +173,7 @@ err:
 	if (ni) bi_free(ni);
 	if (rsa) RSA_free(rsa);
 	if (eni_st) OPENSSL_free(eni_st);
-	if (hex_ni) OPENSSL_free(hex_ni);
+	if (nbin_ni) OPENSSL_free(nbin_ni);
 
 	return 0;
 }
