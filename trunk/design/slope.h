@@ -43,7 +43,8 @@ BIGNUM *EC_POINT_add_slope(EC_GROUP *group, EC_POINT *A, EC_POINT *B, BIGNUM *sl
 		goto err;
 
 	/* if double */
-	if (A == B) {
+	if (!EC_POINT_cmp(group, A, B, Context))
+	{
 		/* ans=x^2    <result> := <i> * <n>
 						bi_ptr bi_mul( bi_ptr result, const bi_ptr i, const bi_ptr n);*/
 		bi_res = bi_mul( ans, ax, ax);
@@ -85,6 +86,11 @@ BIGNUM *EC_POINT_add_slope(EC_GROUP *group, EC_POINT *A, EC_POINT *B, BIGNUM *sl
 		if (!bi_res) goto err;
 	}
 	else{
+		if (!bi_cmp( ax, bx))
+		{
+			BN_set_word(slope, 0l);
+			return slope;
+		};
 		/*ans = y2-y1  <result> := <i> - <n>
 						bi_ptr bi_sub( bi_ptr result, const bi_ptr i, const bi_ptr n);*/
 		bi_res = bi_sub( ans, by, ay);

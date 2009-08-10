@@ -25,11 +25,10 @@ int compute_sign_challenge (BYTE *res ,
 		COMPLEX * t ,
 		bi_ptr nv)
 {
-	EVP_MD     *digest = NULL;
+	const EVP_MD     *digest = NULL;
 	EVP_MD_CTX mdctx;
-	int        buf_len;
-	char       *buf = NULL;
-	int        rv;
+	int        buf_len, rv;
+	unsigned char       *buf = NULL;
 
 	if (  !res || !VerifierBasename || VerifierBasenameLength  <= 0 ) return 0;
 
@@ -251,12 +250,10 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	BYTE  hash[DAA_HASH_SHA1_LENGTH] , final_hash[DAA_HASH_SHA1_LENGTH] , * buf = NULL;
 	UINT32 hashlen , final_hashlen ,  buf_len;
 	BIGNUM store[500];
-	int ret, i;
+	int ret, i, precomp = 0;
 
 	EVP_MD * digest = NULL;
 	EVP_MD_CTX mdctx;
-
-	int precomp = 0 , ok;
 
 	res1 = COMP_new();
 	res2 = COMP_new();

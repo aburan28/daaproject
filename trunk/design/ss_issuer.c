@@ -25,8 +25,8 @@ int TSS_DAA_JOIN_issuer_setup(
                               TSS_DAA_ISSUER_KEY *   IssuerKey,
                               TSS_DAA_ISSUER_PROOF * IssuerProof)
 {
-	bi_ptr x = NULL , y = NULL , order = NULL , bi = NULL , bi_res = NULL;
-	EC_POINT *P1 = NULL , *P2 = NULL , *point = NULL;
+	bi_ptr x = NULL , y = NULL , order = NULL , bi_res = NULL;
+	EC_POINT *P1 = NULL , *P2 = NULL , *point = NULL, /*test*/*gen;
 	int ret;
 
 	if ( !(IssuerKey->IssuerPK.CapitalX) ||
@@ -64,6 +64,7 @@ int TSS_DAA_JOIN_issuer_setup(
 	bi_set( IssuerKey->IssuerSK.y, y);
 
 	/*TODO [set  P2]  need get the G from group to P1  and bulit a P2 */
+	gen = EC_GROUP_get0_generator(group);
 	ret = EC_POINT_copy( P1 , EC_GROUP_get0_generator(group));
 	if (!ret) goto err;
 
@@ -122,11 +123,10 @@ int TSS_DAA_JOIN_issuer_init(
                             UINT32 *					  EncryptedNonceOfIssuerLength)
 {
 	unsigned char exp[] = { 0x01, 0x00, 0x01 };
-	int rv, e_size = 3;
+	int rv, e_size = 3, nbin_ni_len;
 	RSA *rsa = NULL;
 	bi_ptr ni = NULL;
 	BYTE  *nbin_ni = NULL , *eni_st = NULL;
-	UINT32 nbin_ni_len;
 
 	if ( !(IssuerJoinSession->IssuerNone) )  return 0;
 
@@ -143,7 +143,7 @@ int TSS_DAA_JOIN_issuer_init(
 	if (!eni_st) goto err;
 
 	/* change ni to nbin_ni */
-	nbin_ni = bi_2_nbin(nbin_ni_len, ni);
+	nbin_ni = bi_2_nbin(&nbin_ni_len, ni);
 	if (!nbin_ni) goto err;
 
 	rsa = RSA_new();
@@ -190,10 +190,9 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
 	EC_POINT *Ctemp = NULL ,*point1 = NULL , *point2 = NULL ,  *UPrime = NULL;;
 	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL ;
-	char     *buffer = NULL , *encrypted_oct = NULL;
-	int      i , ret , oct_len , e_size = 3 , buffer_len = 1024;
 	RSA      *rsa = NULL;
-	unsigned char exp[] = { 0x01, 0x00, 0x01 };
+	int      i , ret , oct_len , e_size = 3 , buffer_len = 1024;
+	unsigned char exp[] = { 0x01, 0x00, 0x01 }, *buffer = NULL, *encrypted_oct = NULL;
 
 	if (!group) return 0;
 
