@@ -42,7 +42,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	bi_urandom( u, NONCE_LENGTH );
 	bi_mod( u, u, module );
 
-
+	OpenSSL_add_all_digests();
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 	if ( !digest )
@@ -392,6 +392,8 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 		goto err;
 
 	/* return either an EVP_MD structure or NULL if an error occurs. */
+	OpenSSL_add_all_digests();
+	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 	if ( !digest )
 		goto err;
@@ -527,6 +529,8 @@ int TSS_DAA_SIGN_tpm_sign(
 
 	/* 2. H4(c’||nT||msg) -> c   : */
 	/* return either an EVP_MD structure or NULL if an error occurs. */
+	OpenSSL_add_all_digests();
+	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 	if ( !digest )
 		return 0;

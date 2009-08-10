@@ -53,9 +53,8 @@ void extract(EC_POINT *A, BIGNUM *x, BIGNUM *y)
 // On subsequent passes these values ( total < 500 ) are "played back"
 //
 
-void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int precomp, BIGNUM *store, int *ptr)
+void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int precomp, BIGNUM store[], int *ptr)
 {
-    int     type;
     BIGNUM  *lam, *x, *y, *m, *nx;
     COMPLEX *u, *tmp;
     int     ret;
@@ -72,48 +71,32 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int pre
     /* nx = 0; */
     if ( !BN_set_word(nx, 0l) )
     	goto out ;
-    /*if (!precomp)
-    { // Store line start point and slope.
-      // Evaluate line from A, and then evaluate vertical through destination
-        extract(A,x,y);
-        type=A.add(B,&pointer);
- //       if (pointer==NULL) return;
-        lam=pointer;
 
-        store[ptr++]=x; store[ptr++]=y; store[ptr++]=lam;
-        if (!type) return;
-// line
-        m=Qx; u=Qy;
-        m-=x; m*=lam;            // 1 ZZn muls
-        u-=y; u-=m;
-    }*/
     if (!precomp)
     {
     	/* x = A.x, y = A.y :affine coordinates */
-
     	extract( A, x, y);
 
-    	/* get slope */
-    	//if ( !EC_POINT_add_slope(group, A, B, &lam ) )
-    		//	return ;
+    	/* get line slope */
 
     	if ( !EC_POINT_add_slope( group, A, B, lam ) )
     		goto out;
+#if DEBUG
 	    printf("\n slope: ");
 	    BN_print_fp(stdout, lam );
+#endif
     	/* A = A + B */
     	ret = EC_POINT_add( group, A, A, B, Context);
     	if ( !ret )
     		goto out;
-
 
     	/*store values in store[i]  */
     	if ( !BN_copy( &store[*(ptr++)], x ) )
     		goto out;
     	if ( !BN_copy( &store[*(ptr++)], y ) )
     		goto out;
-    	//if ( !BN_copy( &store[*(ptr++)], lam ) )
-    		//goto out;
+    	if ( !BN_copy( &store[*(ptr++)], lam ) )
+    		goto out;
 
     }
     else
@@ -426,10 +409,23 @@ BIGNUM H1(char *string)
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
 
+	if ( module == NULL )
+	{
+		module = bi_new_ptr();
+		if ( module == NULL )
+			goto err;
+		rv = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); //return 1 if success
+		if ( !rv )
+			goto err;
+	}
+
+
+	OpenSSL_add_all_digests();
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 	if ( !digest )
 		goto err;
+
 	/* Return either an EVP_MD structure or NULL if an error occurs. */
 	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );			//  initialization the ||
 	if (!rv)
@@ -447,7 +443,7 @@ BIGNUM H1(char *string)
 	if ( !rv || &hash_len <= 0 )
 		goto err;
 
-
+	BN_init( &h );
 	BN_set_word( &h, 1l);
     j=0; i=1;
     for(;;)
@@ -518,6 +514,7 @@ int H2(COMPLEX *x,char *s)
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
 
+	OpenSSL_add_all_digests();
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 	if ( !digest )
@@ -608,7 +605,7 @@ err:
 EC_POINT *map_to_point(char *ID)
 {
     EC_POINT *Q;
-    BIGNUM x0 = H1( ID ), *module;
+    BIGNUM x0 = H1( ID );
     int rv;
 
     Q = EC_POINT_new( group );
@@ -616,17 +613,17 @@ EC_POINT *map_to_point(char *ID)
     	return 0;
 
 	/* Get group module p */
-	module = BN_new();
-	if ( module == NULL )
-		goto err;
-	rv = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); //return 1 if success
-	if ( !rv )
-		goto err;
+    if ( module == NULL )
+    {
+    	module = BN_new();
+    	if ( module == NULL )
+    		goto err;
+    	rv = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); //return 1 if success
+    	if ( !rv )
+    		goto err;
+    }
 
     if ( !EC_POINT_set_compressed_coordinates_GFp( group, Q, &x0, 1, Context))
-    		goto err;
-
-    if( !EC_POINT_is_on_curve( group, Q, Context) )
     {
     	/* r->x is neg*/
     	if ( BN_is_negative(&x0) )
@@ -637,6 +634,12 @@ EC_POINT *map_to_point(char *ID)
     	BN_mod( &x0, &x0, module, Context );
 
     	EC_POINT_set_compressed_coordinates_GFp( group, Q, &x0, 1, Context );
+    }
+
+
+    if( !EC_POINT_is_on_curve( group, Q, Context) )
+    {
+		goto err;
     }
 
     BN_free( module );
