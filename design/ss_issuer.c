@@ -154,7 +154,7 @@ int TSS_DAA_JOIN_issuer_init(
     	goto err;
 
     /* nI -> commreq */
-	rv = RSA_public_encrypt( nbin_ni_len, nbin_ni , eni_st , rsa , RSA_NO_PADDING);
+	rv = RSA_public_encrypt( nbin_ni_len, nbin_ni , eni_st , rsa , RSA_PKCS1_PADDING);
 	if (rv == -1)
 		goto err;
 

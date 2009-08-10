@@ -31,9 +31,11 @@ int TSS_DAA_JOIN_issuer_init(
                             UINT32 *					  EncryptedNonceOfIssuerLength);
 
 
-int TSS_DAA_JOIN_issuer_credentia(TSS_DAA_ISSUER_KEY * IssuerKey,
-								  TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession,
-                                  TSS_DAA_CREDENTIAL2          * Credential,
-                                  BYTE **  EncyptedCred,
-                                  UINT32 * EncyptedCredLength);
+int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
+								  UINT32				PlatformEndorsementPubkeyLength,
+								  TSS_DAA_ISSUER_KEY *	IssuerKey,
+								  TSS_DAA_ISSUER_JOIN_SESSION *	IssuerJoinSession,
+                                  TSS_DAA_CREDENTIAL2 *			Credential,
+                                  BYTE ** 						EncyptedCred,
+                                  UINT32 *						EncyptedCredLength);
 #endif
