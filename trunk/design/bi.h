@@ -23,7 +23,6 @@
 //#define INLINE
 //#undef INLINE_DECL
 
-void * (*bi_alloc)(size_t size);
 
 // keep the list of allocated memory, usually used for the format functions
 //extern list_ptr allocs;

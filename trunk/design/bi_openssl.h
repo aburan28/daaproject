@@ -21,6 +21,9 @@ extern BN_CTX *context;
 
 #define INLINE_DECL static inline
 
+
+void * (*bi_alloc)(size_t size);
+
 INLINE_DECL bi_ptr bi_new(bi_ptr result) {
 	BN_init( result);
 	return result;
