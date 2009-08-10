@@ -126,6 +126,15 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int pre
     		goto out;
     }
 
+    if( BN_is_zero( lam ) )
+    {
+    	extract(A, x, y );
+        printf("\n Point A after A + B : \n ");
+        BN_print_fp(stdout, x );
+        printf("\n");
+        BN_print_fp(stdout, y );
+    	return;
+    }
     /* m = Qx - x */
 	BN_mod_sub( m, Qx, x, module, Context);
 	/* m = m * lam */

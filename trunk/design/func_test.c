@@ -6,6 +6,7 @@
  */
 
 #include "daa.h"
+#include "bi.h"
 #include <stdio.h>
 #include <string.h>
 #include <openssl/bn.h>
@@ -66,12 +67,12 @@ err:
 #endif
 int main()
 {
-    BIGNUM *x, *y, *exp, *m, *order, *cof;
-    BIGNUM t;
-    COMPLEX *a, *b, *r;
-    EC_POINT *point;
+    BIGNUM   *x, *y, *exp, *m, *order, *cof;
+    BIGNUM   t, store[30];
+    COMPLEX  *a, *b, *r;
+    EC_POINT *point, *Q;
+    int      i;
 
-    BN_init( &t );
     x = BN_new();
     y = BN_new();
     order = BN_new();
@@ -81,9 +82,13 @@ int main()
     a = COMP_new();
     b = COMP_new();
     r = COMP_new();
+    for( i = 0; i < 30; i++ )
+    	BN_init( &(store[i]) );
 
     if ( Context == NULL )
     	Context = BN_CTX_new();
+
+    bi_init( &malloc );
 
     group = EC_GROUP_new( EC_GFp_simple_method() );
     if ( group == NULL )
@@ -112,7 +117,43 @@ int main()
     	printf(" group set is ok \n");
 
 
-    BN_free( &t );
+
+//    printf("\n");
+//    BN_set_word(x, 41l);
+//    BN_mod_inverse(x, x, m, Context);
+//    BN_print_fp(stdout, x);
+//
+//    printf("\n");
+//    BN_set_word(x, 11l);
+//    BN_mod_inverse(x, x, m, Context);
+//    BN_print_fp(stdout, x);
+
+    BN_set_word(x, 23l);
+    BN_set_word(y, 8l);
+    BN_set_word(order, 11l);
+
+    Q = EC_POINT_new( group );
+    EC_POINT_set_affine_coordinates_GFp( group, Q, x, y, Context );
+
+    Tate( point, Q, order, 0,  store, a );
+    printf("tate pair  t(p, Q) =:\n a.x: ");
+    BN_print_fp(stdout, &a->x);
+    printf("\na.y: ");
+    BN_print_fp(stdout, &a->y);
+
+    EC_POINT_dbl( group, point, point, Context);
+    EC_POINT_get_affine_coordinates_GFp( group, point, x, y, Context);
+    printf("2A.x =:\n");
+    BN_print_fp(stdout, x);
+    printf("2P.y= :\n");
+    BN_print_fp(stdout, y);
+
+    Tate( point, Q, order, 0,  store, a );
+    printf("tate pair  t(2p, Q) =:\n a.x: ");
+    BN_print_fp(stdout, &a->x);
+    printf("\na.y: ");
+    BN_print_fp(stdout, &a->y);
+
     BN_free( x );
     BN_free( y );
     BN_free( exp );

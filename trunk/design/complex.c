@@ -259,7 +259,7 @@ COMPLEX *COMP_inver( COMPLEX *r, COMPLEX *a, BIGNUM * m )
 		return NULL;
 	}
 
-	ret = BN_mod_sqr( &sqr2, &a->x, m, Context);
+	ret = BN_mod_sqr( &sqr2, &a->y, m, Context);
 	if ( !ret )
 	{
 		BN_free( &sqr1 );
