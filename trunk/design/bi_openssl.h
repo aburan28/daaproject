@@ -79,6 +79,7 @@ INLINE_DECL bi_ptr bi_mul_si( bi_ptr result, const bi_ptr i, const long n) {
 
 /*  <result> := <i> * <n>   */
 INLINE_DECL bi_ptr bi_mul( bi_ptr result, const bi_ptr i, const bi_ptr n) {
+	if (!context) printf("ERROR!");
 	BN_mul( result, i, n, context);
 	return result;
 }
