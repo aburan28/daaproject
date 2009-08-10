@@ -39,7 +39,7 @@ BIGNUM *EC_POINT_add_slope(EC_GROUP *group, EC_POINT *A, EC_POINT *B, BIGNUM *sl
 	if ( !EC_POINT_get_affine_coordinates_GFp( group, A, ax, ay, Context) )
 		goto err;
 
-	if ( !EC_POINT_get_affine_coordinates_GFp( group, A, bx, by, Context) )
+	if ( !EC_POINT_get_affine_coordinates_GFp( group, B, bx, by, Context) )
 		goto err;
 
 	/* if double */
@@ -97,11 +97,16 @@ BIGNUM *EC_POINT_add_slope(EC_GROUP *group, EC_POINT *A, EC_POINT *B, BIGNUM *sl
 		bi_res = bi_sub( bip, bx, ax);
 		if (!bi_res) goto err;
 
-		bi_res = bi_mod( ans, ans, bimod);
+		bi_res = bi_mod( bip, bip, bimod);
 		if (!bi_res) goto err;
 
 		/*moddiv ans/bip*/
-		bi_res = bi_div( ans, ans, bip);
+		if ( !bi_invert_mod(bip, bip, bimod ) )
+			goto err;
+		bi_res = bi_mul( ans, ans, bip);
+		if (!bi_res) goto err;
+
+		bi_res = bi_mod( ans, ans, bimod);
 		if (!bi_res) goto err;
 
 		/* OUT */

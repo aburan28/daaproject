@@ -99,10 +99,13 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int pre
 
     	if ( !EC_POINT_add_slope( group, A, B, lam ) )
     		goto out;
+	    printf("\n slope: ");
+	    BN_print_fp(stdout, lam );
     	/* A = A + B */
     	ret = EC_POINT_add( group, A, A, B, Context);
     	if ( !ret )
     		goto out;
+
 
     	/*store values in store[i]  */
     	if ( !BN_copy( &store[*(ptr++)], x ) )
@@ -137,7 +140,24 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int pre
 	/* u  = u - tmp */
 	COMP_sub(u, u, tmp, module);
 	/* num = num * u */
+
+    printf("\n u = before mul num:\n ");
+    BN_print_fp(stdout, &u->x );
+    printf("\n");
+    BN_print_fp(stdout, &u->y );
+
     COMP_mul( num, num, u, module);
+
+    printf("\n num = after mul u: \n");
+    BN_print_fp(stdout, &num->x );
+    printf("\n");
+    BN_print_fp(stdout, &num->y );
+
+	extract(A, x, y );
+    printf("\n Point A after A + B : \n ");
+    BN_print_fp(stdout, x );
+    printf("\n");
+    BN_print_fp(stdout, y );
 
 out:
     BN_free( lam );
@@ -219,7 +239,7 @@ int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, int prec
 
 	for ( i = 0; i < 1; i++ )
 	{
-		COMP_mul( res, res, res, q);
+		COMP_mul( res, res, res, module);
 
 		printf("this the second ** i = %d ** before g():\nres.x: ", i);
 	    BN_print_fp(stdout, &res->x);
@@ -259,8 +279,15 @@ int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, int prec
 
 	/* p = p / q */
 	BN_div(p, NULL, p, q, Context);
+
+    printf("\n after div p = : \n");
+    BN_print_fp(stdout, p);
+
 	/* res = res ^ p */
 	COMP_pow( res, res, p, &group->field);
+
+    printf("\n after pow res =  : \n");
+    BN_print_fp(stdout, p);
 
 	/* res = res / con_res */
 	COMP_init( &con_res );
