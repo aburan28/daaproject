@@ -32,6 +32,7 @@ int compute_sign_challenge (BYTE *res ,
 
 	if (  !res || !VerifierBasename || VerifierBasenameLength  <= 0 ) return 0;
 
+	OpenSSL_add_all_digests();
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 
@@ -351,6 +352,7 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 
 	/* 7.1 Make H4(c†|nT||msg) = final_hash    */
 
+	OpenSSL_add_all_digests();
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
 
