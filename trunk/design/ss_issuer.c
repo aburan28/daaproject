@@ -43,7 +43,7 @@ int TSS_DAA_JOIN_issuer_setup(
 	/*  GET order = group->order */
 	EC_GROUP_get_order(group , order , Context);
 
-	/*  random x,y */
+	/*  random x, y % oreder */
 	bi_urandom( x, NONCE_LENGTH );
 	bi_urandom( y, NONCE_LENGTH );
 
@@ -52,7 +52,7 @@ int TSS_DAA_JOIN_issuer_setup(
 	bi_res = bi_mod(y , y, order );
 	if ( !bi_res ) goto err;
 
-	/* set in the key */
+	/* set the issuer secret key */
 	IssuerKey->IssuerSK.x = bi_new_ptr();
 	IssuerKey->IssuerSK.y = bi_new_ptr();
 	if ( IssuerKey->IssuerSK.x == NULL || IssuerKey->IssuerSK.y == NULL )
@@ -61,25 +61,30 @@ int TSS_DAA_JOIN_issuer_setup(
 	bi_set( IssuerKey->IssuerSK.x, x);
 	bi_set( IssuerKey->IssuerSK.y, y);
 
-	/* [set  P2]  need get the G from group to P1  and bulit a P2 */
+	/* set P1 and P2  need get the G from group to P1  and bulit a P2 */
 	/* gen = const group->generator */
 	gen = EC_GROUP_get0_generator(group);
+
 	ret = EC_POINT_copy( P1 , gen);
 	if (!ret) goto err;
 
+	/* set P2 */
     char *str = "abcdefghijklmnop";
     P2 = map_to_point( str );
     if ( P2 == NULL )
     	goto err;
 
-	/* X=x*P2 Y=y*P2 */
+	/* X = x*P2 Y = y * P2 */
+    /* malloc space for X*/
 	IssuerKey->IssuerPK.CapitalX = EC_POINT_new( group );
 	if (IssuerKey->IssuerPK.CapitalX == NULL )
 		goto err;
 
+	/* point = x * P2 */
 	ret = EC_POINT_mul(group, point, NULL, P2 , x, Context);	// mul the x*P2 = X
 	if (!ret) goto err;
 
+	/* X = point */
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalX , point);
 	if (!ret) goto err;
 
@@ -88,17 +93,19 @@ int TSS_DAA_JOIN_issuer_setup(
 	if (IssuerKey->IssuerPK.CapitalY == NULL )
 		goto err;
 
+	/* point = y * P2 */
 	ret = EC_POINT_mul(group, point, NULL, P2 , y, Context);	// mul the y*P2 = Y
 	if (!ret) goto err;
 
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalY , point);
 	if (!ret) goto err;
 
-	/* XP=x*P1 YP=y*P1 */
+	/* XP = x * P1 ,YP = y * P1 */
 	IssuerProof->CapitalXPrime = EC_POINT_new( group );
 	if (IssuerProof->CapitalXPrime == NULL )
 		goto err;
 
+	/* point = x * P1, XPrime = point */
 	ret = EC_POINT_mul(group, point, NULL, P1 , x, Context);	// mul the x*P1 = XP
 	if (!ret) goto err;
 	ret = EC_POINT_copy( IssuerProof->CapitalXPrime , point);
@@ -108,6 +115,7 @@ int TSS_DAA_JOIN_issuer_setup(
 	if (IssuerProof->CapitalYPrime == NULL )
 		goto err;
 
+	/* point = y * P1 , YPrime = point */
 	ret = EC_POINT_mul(group, point, NULL, P1 , y, Context);	// mul the y*P1 = YP
 	if (!ret) goto err;
 	ret = EC_POINT_copy( IssuerProof->CapitalYPrime , point);
@@ -122,6 +130,7 @@ int TSS_DAA_JOIN_issuer_setup(
 	if (IssuerKey->IssuerPK.Eccparmeter.CapitalP2 == NULL )
 		goto err;
 
+	/* CaptialP1 = P1, CapitalP2 = P2 */
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , P1);
 	if (!ret) goto err;
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.Eccparmeter.CapitalP2 , P2);
