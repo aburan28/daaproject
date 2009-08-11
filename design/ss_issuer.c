@@ -63,7 +63,7 @@ int TSS_DAA_JOIN_issuer_setup(
 
 	/* [set  P2]  need get the G from group to P1  and bulit a P2 */
 	/* gen = const group->generator */
-
+	gen = EC_GROUP_get0_generator(group);
 	ret = EC_POINT_copy( P1 , gen);
 	if (!ret) goto err;
 
@@ -218,8 +218,8 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 {
 
 	point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
-	EC_POINT *Ctemp = NULL ,*point1 = NULL , *point2 = NULL ,  *UPrime = NULL, *point3 = NULL;
-	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL, cofactor = NULL;
+	EC_POINT *Ctemp = NULL,*point1 = NULL, *point2 = NULL, *UPrime = NULL;
+	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL;
 	RSA      *rsa = NULL;
 	int      i , ret , oct_len , e_size = 3 , buffer_len = 1024;
 	unsigned char exp[] = { 0x01, 0x00, 0x01 }, *buffer = NULL, *encrypted_oct = NULL;
@@ -235,7 +235,6 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 
 	xy	  = bi_new_ptr();	if (!xy)    goto err;
 	order = bi_new_ptr();	if (!order) goto err;
-	cofactor = bi_new_ptr(); if (!cofactor) goto err;
 
 	point1 = EC_POINT_new(group);
 	if (!point1) goto err;
@@ -274,10 +273,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	/*  GET group->order = order */
 	EC_GROUP_get_order(group , order , Context);
 	if (!order) goto err;
-	EC_GROUP_get_cofactor(group, cofactor, Context);
-	if (!cofactor) goto err;
 
-	bi_div(order, order, cofactor);
 	/*  r mod order */
 	do
 	{
