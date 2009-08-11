@@ -26,28 +26,21 @@ int TSS_DAA_JOIN_issuer_setup(
                               TSS_DAA_ISSUER_PROOF * IssuerProof)
 {
 	bi_ptr x = NULL , y = NULL , order = NULL , bi_res = NULL;
-	EC_POINT *P1 = NULL , *P2 = NULL , *point = NULL;
+	EC_POINT *P1 = NULL , *P2 = NULL , *point = NULL, *gen = NULL;
 	int ret;
 
-	if ( !(IssuerKey->IssuerPK.CapitalX) ||
-		 !(IssuerKey->IssuerPK.CapitalY) ||
-	     !(IssuerKey->IssuerPK.Eccparmeter.CapitalP1) ||
-	     !(IssuerKey->IssuerPK.Eccparmeter.CapitalP2) ||
-	     !(IssuerProof->CapitalXPrime) ||
-	     !(IssuerProof->CapitalYPrime) ||
-	     !(IssuerKey->IssuerSK.x) ||
-	     !(IssuerKey->IssuerSK.y) ) return 0;
+	if ( !group || !IssuerKey || !IssuerProof) return 0;
 
 	x = bi_new_ptr();	if (!x) goto err;
 	y = bi_new_ptr();	if (!x) goto err;
 
 	order = bi_new_ptr();	if (!order) goto err;
 
-	P1 = EC_POINT_new(group);	if (!P1) goto err;
-	P2 = EC_POINT_new(group);	if (!P2) goto err;
-	point = EC_POINT_new(group);	if (!point) goto err;
+	P1 = EC_POINT_new( group );	if ( !P1 ) goto err;
 
-	/*  GET group->order = order */
+	point = EC_POINT_new( group );	if ( !point ) goto err;
+
+	/*  GET order = group->order */
 	EC_GROUP_get_order(group , order , Context);
 
 	/*  random x,y */
@@ -60,29 +53,60 @@ int TSS_DAA_JOIN_issuer_setup(
 	if ( !bi_res ) goto err;
 
 	/* set in the key */
+	IssuerKey->IssuerSK.x = bi_new_ptr();
+	IssuerKey->IssuerSK.y = bi_new_ptr();
+	if ( IssuerKey->IssuerSK.x == NULL || IssuerKey->IssuerSK.y == NULL )
+		goto err;
+
 	bi_set( IssuerKey->IssuerSK.x, x);
 	bi_set( IssuerKey->IssuerSK.y, y);
 
-	/*TODO [set  P2]  need get the G from group to P1  and bulit a P2 */
-	ret = EC_POINT_copy( P1 , EC_GROUP_get0_generator(group));
+	/* [set  P2]  need get the G from group to P1  and bulit a P2 */
+	/* gen = const group->generator */
+
+	ret = EC_POINT_copy( P1 , gen);
 	if (!ret) goto err;
 
+    char *str = "abcdefghijklmnop";
+    P2 = map_to_point( str );
+    if ( P2 == NULL )
+    	goto err;
+
 	/* X=x*P2 Y=y*P2 */
+	IssuerKey->IssuerPK.CapitalX = EC_POINT_new( group );
+	if (IssuerKey->IssuerPK.CapitalX == NULL )
+		goto err;
+
 	ret = EC_POINT_mul(group, point, NULL, P2 , x, Context);	// mul the x*P2 = X
 	if (!ret) goto err;
+
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalX , point);
 	if (!ret) goto err;
 
+	/* Y = y * P2 */
+	IssuerKey->IssuerPK.CapitalY = EC_POINT_new( group );
+	if (IssuerKey->IssuerPK.CapitalY == NULL )
+		goto err;
+
 	ret = EC_POINT_mul(group, point, NULL, P2 , y, Context);	// mul the y*P2 = Y
 	if (!ret) goto err;
+
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.CapitalY , point);
 	if (!ret) goto err;
 
 	/* XP=x*P1 YP=y*P1 */
+	IssuerProof->CapitalXPrime = EC_POINT_new( group );
+	if (IssuerProof->CapitalXPrime == NULL )
+		goto err;
+
 	ret = EC_POINT_mul(group, point, NULL, P1 , x, Context);	// mul the x*P1 = XP
 	if (!ret) goto err;
 	ret = EC_POINT_copy( IssuerProof->CapitalXPrime , point);
 	if (!ret) goto err;
+
+	IssuerProof->CapitalYPrime = EC_POINT_new( group );
+	if (IssuerProof->CapitalYPrime == NULL )
+		goto err;
 
 	ret = EC_POINT_mul(group, point, NULL, P1 , y, Context);	// mul the y*P1 = YP
 	if (!ret) goto err;
@@ -91,17 +115,24 @@ int TSS_DAA_JOIN_issuer_setup(
 
 	/* Here is the list maybe make in future developing
 	*  Kk	is common var and defined in daa.h */
+	IssuerKey->IssuerPK.Eccparmeter.CapitalP1 = EC_POINT_new( group );
+	if (IssuerKey->IssuerPK.Eccparmeter.CapitalP1 == NULL )
+		goto err;
+	IssuerKey->IssuerPK.Eccparmeter.CapitalP2 = EC_POINT_new( group );
+	if (IssuerKey->IssuerPK.Eccparmeter.CapitalP2 == NULL )
+		goto err;
 
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , P1);
 	if (!ret) goto err;
 	ret = EC_POINT_copy( IssuerKey->IssuerPK.Eccparmeter.CapitalP2 , P2);
 	if (!ret) goto err;
 
-	bi_free(x);
-	bi_free(y);
-	EC_POINT_free(point);
-	EC_POINT_free(P1);
-	EC_POINT_free(P2);
+	bi_free( x );
+	bi_free( y );
+	bi_free( order );
+	EC_POINT_free( point );
+	EC_POINT_free( P1 );
+	EC_POINT_free( P2 );
 
 	return 1;
 err:
