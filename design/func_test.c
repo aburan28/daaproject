@@ -104,7 +104,7 @@ int main()
 
     BN_set_word(x, 23l);
     BN_set_word(y, 8l);
-    BN_set_word(order, 44l);
+    BN_set_word(order, 11l);
 
     point = EC_POINT_new( group );
     EC_POINT_set_affine_coordinates_GFp( group, point, x, y, Context );
@@ -116,6 +116,9 @@ int main()
     if ( EC_GROUP_check( group, Context ) )
     	printf(" group set is ok \n");
 
+    TSS_DAA_ISSUER_KEY   issuer_key;
+    TSS_DAA_ISSUER_PROOF issuer_proof;
+    TSS_DAA_JOIN_issuer_setup(&issuer_key, &issuer_proof);
 
 
 //    printf("\n");
@@ -127,6 +130,9 @@ int main()
 //    BN_set_word(x, 11l);
 //    BN_mod_inverse(x, x, m, Context);
 //    BN_print_fp(stdout, x);
+
+    char *str = "abcdefghijklmnop";
+    Q = map_to_point( str );
 
     BN_set_word(x, 23l);
     BN_set_word(y, 8l);
