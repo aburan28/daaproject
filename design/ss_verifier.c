@@ -277,23 +277,23 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 		BN_init(&store[i]);
 	}
 
-	ret = Tate( &(DaaSignature->CapitalAPrime) , IssuerPK->CapitalY , module , precomp , store , res1);
+	ret = Tate( DaaSignature->CapitalAPrime , IssuerPK->CapitalY , module , precomp , store , res1);
 	if (!ret) goto err;
 
-	ret = Tate( &(DaaSignature->CapitalBPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , res2);
+	ret = Tate( DaaSignature->CapitalBPrime , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , res2);
 	if (!ret) goto err;
 
 	if ( !COMP_cmp( res1 , res2 ) ) goto err;
 
 	/* 3. t(A'，X) -> ρ†a   t(B’，X) -> ρ†b   t(C'，P2) -> ρ†c   */
 
-	ret = Tate( &(DaaSignature->CapitalAPrime) , IssuerPK->CapitalX , module , precomp , store , pta);
+	ret = Tate( DaaSignature->CapitalAPrime , IssuerPK->CapitalX , module , precomp , store , pta);
 	if (!ret) goto err;
 
-	ret = Tate( &(DaaSignature->CapitalBPrime) , IssuerPK->CapitalX , module , precomp , store , ptb);
+	ret = Tate( DaaSignature->CapitalBPrime , IssuerPK->CapitalX , module , precomp , store , ptb);
 	if (!ret) goto err;
 
-	ret = Tate( &(DaaSignature->CapitalCPrime) , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , ptc);
+	ret = Tate( DaaSignature->CapitalCPrime , IssuerPK->Eccparmeter.CapitalP2 , module , precomp , store , ptc);
 	if (!ret) goto err;
 
 	/* 4. (ρ†b)s *(ρ†c/ρ†a)-c * -> T†   */
@@ -318,10 +318,10 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	CE = EC_POINT_new(group);
 	DT = EC_POINT_new(group);
 
-	ret = EC_POINT_mul(group, SB , NULL, &(DaaSignature->CapitalBPrime) , DaaSignature->s, Context);
+	ret = EC_POINT_mul(group, SB , NULL, DaaSignature->CapitalBPrime , DaaSignature->s, Context);
 	if (!ret) goto err;
 
-	ret = EC_POINT_mul(group, CE , NULL, &(DaaSignature->CapitalEPrime) , DaaSignature->ch, Context);
+	ret = EC_POINT_mul(group, CE , NULL, DaaSignature->CapitalEPrime , DaaSignature->ch, Context);
 	if (!ret) goto err;
 
 	ret = EC_POINT_invert(group, CE, Context);					/* use  EC_POINT_invert to updown CF so can add it */
@@ -338,11 +338,11 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 			IssuerPK ,
 			VerifierBasename ,
 			VerifierBasenameLength ,
-			&(DaaSignature->CapitalAPrime) ,
-			&(DaaSignature->CapitalBPrime) ,
-			&(DaaSignature->CapitalCPrime) ,
+			DaaSignature->CapitalAPrime ,
+			DaaSignature->CapitalBPrime ,
+			DaaSignature->CapitalCPrime ,
 			DT ,
-			&(DaaSignature->CapitalEPrime) ,
+			DaaSignature->CapitalEPrime ,
 			pta ,
 			ptb ,
 			ptc ,

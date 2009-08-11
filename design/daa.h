@@ -120,7 +120,7 @@ typedef struct tdIssuerJionSession
 {
     bi_ptr  IssuerNone;
 
-    ECC_POINT  CapitalF;
+    ECC_POINT  *CapitalF;
 
     bi_ptr  ch;
 
@@ -132,11 +132,11 @@ typedef struct tdIssuerJionSession
 
 typedef struct tdCredential
 {
-	ECC_POINT CapitalA;
+	ECC_POINT *CapitalA;
 
-	ECC_POINT CapitalB;
+	ECC_POINT *CapitalB;
 
-	ECC_POINT CapitalC;
+	ECC_POINT *CapitalC;
 
 }TSS_DAA_CREDENTIAL2;
 
@@ -170,13 +170,13 @@ typedef struct  tdHostJoinSession
 
 typedef struct tdSignature
 {
-	ECC_POINT CapitalAPrime;
+	ECC_POINT *CapitalAPrime;
 
-	ECC_POINT CapitalBPrime;
+	ECC_POINT *CapitalBPrime;
 
-	ECC_POINT CapitalCPrime;
+	ECC_POINT *CapitalCPrime;
 
-	ECC_POINT CapitalEPrime;
+	ECC_POINT *CapitalEPrime;
 
 	bi_ptr ch;
 

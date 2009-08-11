@@ -204,7 +204,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	bi_mod( s, s, module );
 
 	/* 6:  (F，c，s) -> comm. */
-	rv = EC_POINT_copy( &(IssuerJoinSession->CapitalF), F);
+	rv = EC_POINT_copy( IssuerJoinSession->CapitalF, F);
 	if ( !rv )
 		goto err;
 

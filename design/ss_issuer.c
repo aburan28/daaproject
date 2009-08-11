@@ -223,7 +223,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	if ( !ret ) goto err;
 
 	/* mul the c*F  = point2 */
-	ret = EC_POINT_mul(group, point2 , NULL, &(IssuerJoinSession->CapitalF) , IssuerJoinSession->ch, Context);
+	ret = EC_POINT_mul(group, point2 , NULL, IssuerJoinSession->CapitalF, IssuerJoinSession->ch, Context);
 	if ( !ret ) goto err;
 
 	/* use  EC_POINT_invert to updown point2 so can add it */
@@ -255,21 +255,21 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	ret = EC_POINT_mul(group, point1 , NULL, IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , r , Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_copy( &(Credential->CapitalA) , point1 );
+	ret = EC_POINT_copy( Credential->CapitalA , point1 );
 	if ( !ret ) goto err;
 	/* 1 end */
 
 	/* 2 mul the y*A  = point1 - > B */
-	ret = EC_POINT_mul(group, point1, NULL, &(Credential->CapitalA) , IssuerKey->IssuerSK.y , Context);
+	ret = EC_POINT_mul(group, point1, NULL, Credential->CapitalA , IssuerKey->IssuerSK.y , Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_copy( &(Credential->CapitalB) , point1);
+	ret = EC_POINT_copy( Credential->CapitalB , point1);
 	if ( !ret ) goto err;
 	/* 2 end */
 
 	/* 3  (x*A + rxy*F)- C */
 	/* mul the x*A = point1 */
-	ret = EC_POINT_mul(group, point1, NULL, &(Credential->CapitalA) , IssuerKey->IssuerSK.x , Context);
+	ret = EC_POINT_mul(group, point1, NULL, Credential->CapitalA , IssuerKey->IssuerSK.x , Context);
 	if ( !ret ) goto err;
 
 	/* mul the x*y = xy */
@@ -281,14 +281,14 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	if ( !ret ) goto err;
 
 	/* mul the r'*F = point2 */
-	ret = EC_POINT_mul(group, point1, NULL, &(IssuerJoinSession->CapitalF) , r , Context);
+	ret = EC_POINT_mul(group, point1, NULL, IssuerJoinSession->CapitalF, r , Context);
 	if ( !ret ) goto err;
 
 	/* point2 + point1 -> C*/
 	ret = EC_POINT_add(group, Ctemp, point2, point1, Context);
 	if ( !ret ) goto err;
 
-	ret = EC_POINT_copy( &(Credential->CapitalC) , Ctemp);
+	ret = EC_POINT_copy( Credential->CapitalC , Ctemp);
 	if ( !ret ) goto err;
 	/* 3 end */
 
@@ -303,7 +303,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	/* malloc end*/
 
 	/*1  cre.A -> buffer */
-	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalA), form, buffer, buffer_len,  Context);
+	oct_len = EC_POINT_point2oct(group, Credential->CapitalA, form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*1  buffer -> encrypted_oct*/
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
@@ -318,7 +318,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 		}
 
 	/*2  cre.B -> buffer */
-	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalB), form, buffer, buffer_len,  Context);
+	oct_len = EC_POINT_point2oct(group, Credential->CapitalB, form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*2  buffer -> encrypted_oct*/
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
@@ -332,7 +332,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 				*EncyptedCred[i] = 0;
 		}
 	/*3  cre.C -> buffer */
-	oct_len = EC_POINT_point2oct(group, &(Credential->CapitalC), form, buffer, buffer_len,  Context);
+	oct_len = EC_POINT_point2oct(group, Credential->CapitalC, form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*3  buffer -> encrypted_oct*/
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);

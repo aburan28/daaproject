@@ -41,15 +41,15 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 
 	point = EC_POINT_new( group );
 	ret = EC_POINT_oct2point( group, point, CredentialBytes, len, Context);
-	if (!EC_POINT_copy( &(DaaCredential->CapitalA), point ))
+	if (!EC_POINT_copy( DaaCredential->CapitalA, point ))
 		goto err;
 
 	ret = EC_POINT_oct2point( group, point, (CredentialBytes + len) , len, Context);
-	if (!EC_POINT_copy( &(DaaCredential->CapitalB), point ))
+	if (!EC_POINT_copy( DaaCredential->CapitalB, point ))
 		goto err;
 
 	ret = EC_POINT_oct2point( group, point, ( CredentialBytes + len * 2 ), len, Context);
-	if (!EC_POINT_copy( &(DaaCredential->CapitalC), point ))
+	if (!EC_POINT_copy( DaaCredential->CapitalC, point ))
 		goto err;
 
 	// 1. t(A，X) ->ρa   :// ?Tate(Ppub,Qid,q,precomp,store,gid);
@@ -60,7 +60,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	precomp = 0;
 	complex = COMP_new();
 
-	ret = Tate( &(DaaCredential->CapitalA), IssuerPK->CapitalX, module, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalX, module, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
@@ -69,7 +69,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 		goto err;
 
 	// 2. t(B，X) -> ρb   :// ?
-	ret = Tate( &(DaaCredential->CapitalB), IssuerPK->CapitalX, module, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalB, IssuerPK->CapitalX, module, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
@@ -80,7 +80,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	// 3. t(C，P2) -> ρc   :// ?
 	if ( IssuerPK->Eccparmeter.CapitalP2 == NULL )
 		goto err;
-	ret = Tate( &(DaaCredential->CapitalC), IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalC, IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
@@ -89,13 +89,13 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 		goto err;
 
 	// 4. check t(A，Y) == t(B，P2) || t(A+E，X) ==ρc   :// ?
-	ret = Tate( &(DaaCredential->CapitalA), IssuerPK->CapitalY, module, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalY, module, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
 	complex2 = COMP_new();
 
-	ret = Tate( &(DaaCredential->CapitalB), IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex2);
+	ret = Tate( DaaCredential->CapitalB, IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex2);
 	if ( !ret )
 		goto err;
 
@@ -109,7 +109,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	if ( !ret )
 		goto err;
 
-	ret = EC_POINT_add( group, point, &(DaaCredential->CapitalA), point, Context);
+	ret = EC_POINT_add( group, point, DaaCredential->CapitalA, point, Context);
 	if ( !ret )
 		goto err;
 
@@ -210,29 +210,29 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 		goto err;
 
 	/* point = r' * A */
-	ret = EC_POINT_mul( group, point, NULL, &(DaaCredential->CapitalA), rprime, Context );
+	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalA, rprime, Context );
 	if ( !ret )
 		goto err;
 
-	ret = EC_POINT_copy( &(DaaSignature->CapitalAPrime), point );
+	ret = EC_POINT_copy( DaaSignature->CapitalAPrime, point );
 	if ( !ret )
 		goto err;
 
 	/* C' = r' * C */
-	ret = EC_POINT_mul( group, point, NULL, &(DaaCredential->CapitalC), rprime, Context );
+	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalC, rprime, Context );
 	if ( !ret )
 		goto err;
 
-	ret = EC_POINT_copy( &(DaaSignature->CapitalCPrime), point );
+	ret = EC_POINT_copy( DaaSignature->CapitalCPrime, point );
 	if ( !ret )
 		goto err;
 
 	/* B' = r'*B   */
-	ret = EC_POINT_mul( group, point, NULL, &(DaaCredential->CapitalB), rprime, Context );
+	ret = EC_POINT_mul( group, point, NULL, DaaCredential->CapitalB, rprime, Context );
 	if ( !ret )
 		goto err;
 
-	ret = EC_POINT_copy( &(DaaSignature->CapitalBPrime), point );
+	ret = EC_POINT_copy( DaaSignature->CapitalBPrime, point );
 	if ( !ret )
 		goto err;
 
@@ -241,7 +241,7 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 	if ( !ret )
 		goto err;
 
-	ret = EC_POINT_copy( &(DaaSignature->CapitalEPrime), point );
+	ret = EC_POINT_copy( DaaSignature->CapitalEPrime, point );
 	if ( !ret )
 		goto err;
 
@@ -288,11 +288,11 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 						IssuerPK,
 						BSN,
 						strlen( BSN ),
-						&(DaaSignature->CapitalAPrime),
-						&(DaaSignature->CapitalBPrime),
-						&(DaaSignature->CapitalCPrime),
+						DaaSignature->CapitalAPrime,
+						DaaSignature->CapitalBPrime,
+						DaaSignature->CapitalCPrime,
 						point,
-						&(DaaSignature->CapitalEPrime),
+						DaaSignature->CapitalEPrime,
 						&Roaprime,
 						&Robprime,
 						&Rocprime,
