@@ -1,0 +1,250 @@
+/*
+ * func_test.c
+ *
+ *  Created on: 2009-7-29
+ *      Author: xiaoyi
+ */
+
+#include "daa.h"
+#include <stdio.h>
+#include <string.h>
+#include <openssl/bn.h>
+#include "bi.h"
+#include "ss_issuer.h"
+#if 0 // test COMPLEX lib
+int main()
+{
+    BIGNUM *x, *y, *exp, *m;
+    BIGNUM t;
+    COMPLEX a, b, r;
+
+    BN_init( &t );
+    x = BN_new();
+    y = BN_new();
+    exp = BN_new();
+    m = BN_new();
+    COMP_init( &a );
+    COMP_init( &b );
+    COMP_init( &r );
+
+    if ( Context == NULL )
+    	Context = BN_CTX_new();
+
+    if(!BN_set_word(m, 43l))
+    	goto err;
+    BN_set_word(x, 38l);
+    BN_set_word(y, 13l);
+    BN_set_word(exp, 168l);
+    BN_copy( &t ,m );
+
+    if (!COMP_set(&a, x, y, m))
+    	goto err;
+    if (!COMP_pow(&r, &a, exp, m))
+    	goto err;
+
+
+    BN_free( &t );
+    BN_free( x );
+    BN_free( y );
+    BN_free( exp );
+    BN_free( m );
+    COMP_free( &a );
+    COMP_free( &b );
+    COMP_free( &r );
+
+	return 0;
+err:
+	BN_free( &t );
+	BN_free( x );
+	BN_free( y );
+	BN_free( exp );
+	BN_free( m );
+	COMP_free( &a );
+	COMP_free( &b );
+	COMP_free( &r );
+
+	return 0;
+}
+#endif
+int main()
+{
+    BIGNUM *x, *y, *exp, *m, *order, *cof, *tmp, *tmp2;
+    BIGNUM t;
+    COMPLEX *a, *b, *r;
+    ECC_POINT *point, *point2, *point3, *P1, *P2, *CX, *CY;
+    bi_ptr bi_res = NULL, bi_test = NULL;
+    TSS_DAA_ISSUER_KEY issuer_k;
+    TSS_DAA_ISSUER_PROOF issuer_p;
+    BYTE *PlatformEndorsementPubKey, *EncryptedNonceOfIssuer = NULL, *EncyptedCred = NULL;
+    UINT32 PlatformEndorsementPubkeyLength, EncryptedNonceOfIssuerLength, EncyptedCredLength;
+    TSS_DAA_ISSUER_JOIN_SESSION issuer_joins;
+    TSS_DAA_CREDENTIAL2 Credential;
+
+    if ( Context == NULL )
+     	Context = BN_CTX_new();
+
+    bi_init(&malloc);
+
+    BN_init( &t );
+    x = BN_new();
+    y = BN_new();
+    order = BN_new();
+    exp = BN_new();
+    m = BN_new();
+
+    a = COMP_new();
+    b = COMP_new();
+    r = COMP_new();
+
+    if ( Context == NULL )
+    	Context = BN_CTX_new();
+
+    group = EC_GROUP_new( EC_GFp_simple_method() );
+    if ( group == NULL )
+    	goto err;
+
+    if(!BN_set_word(m, 43l))
+    	goto err;
+    BN_set_word(x, 1l);
+    BN_set_word(y, 0l);
+
+    if ( !EC_GROUP_set_curve_GFp( group, m, x, y, Context) )
+    	goto err;
+
+    BN_set_word(x, 23l);
+    BN_set_word(y, 8l);
+    BN_set_word(order, 11l);
+    BN_set_word(m, 4l);
+
+    point = EC_POINT_new( group );
+//    point->X = *x;
+//    point->Y = *y;
+//    point->Z_is_one = 1;
+    EC_POINT_set_affine_coordinates_GFp(group, point, x, y, Context);
+    EC_GROUP_set_generator(group, point, order, m);
+
+
+//    point2 = EC_POINT_new( group );
+//    P1 = EC_POINT_new( group );
+//    P2 = EC_POINT_new( group );
+//    CX = EC_POINT_new( group );
+//    CY = EC_POINT_new( group );
+//    EC_POINT_set_affine_coordinates_GFp( group, point, x, y, Context );
+
+//    issuer_k.IssuerPK.Eccparmeter.CapitalP1 = P1;
+//    issuer_k.IssuerPK.Eccparmeter.CapitalP2 = P2;
+//    issuer_k.IssuerPK.CapitalX = CX;
+//    issuer_k.IssuerPK.CapitalY = CY;
+//    issuer_k.IssuerSK.x = x;
+//    issuer_k.IssuerSK.y = y;
+//    issuer_p.CapitalXPrime = point;
+//    issuer_p.CapitalYPrime = point2;
+
+    if (!TSS_DAA_JOIN_issuer_setup(&issuer_k,&issuer_p)) printf("Error!");
+
+    /*here i try to read PlatformEndorsementPubKey form file*/
+
+		FILE * fp3;
+        fp3=fopen("key","r+");
+        if(fp3==NULL) return 0;
+
+        tmp = BN_new();
+//        tmp2 = BN_new();
+//
+     bi_load( tmp, fp3);
+//        bi_load( tmp, fp3);
+//
+        fclose(fp3);
+
+      //  bi_urandom(tmp , NONCE_LENGTH*10 );
+
+        PlatformEndorsementPubKey = bi_2_nbin(&PlatformEndorsementPubkeyLength, tmp);
+    /* end */
+        issuer_joins.IssuerNone = bi_new_ptr();
+
+        Credential.CapitalA = EC_POINT_new( group );
+
+        Credential.CapitalB = EC_POINT_new( group );
+
+        Credential.CapitalC = EC_POINT_new( group );
+
+        issuer_joins.ch = bi_new_ptr();
+    	bi_urandom(issuer_joins.ch , NONCE_LENGTH );
+
+        issuer_joins.s = bi_new_ptr();
+    	bi_urandom(issuer_joins.s , NONCE_LENGTH );
+
+    	issuer_joins.CapitalF = EC_POINT_new( group );
+
+    	EC_POINT_copy(issuer_joins.CapitalF, issuer_k.IssuerPK.CapitalX);
+
+
+
+    if (!TSS_DAA_JOIN_issuer_init(PlatformEndorsementPubKey,
+								  PlatformEndorsementPubkeyLength,
+								  &issuer_joins,
+								  &EncryptedNonceOfIssuer,
+								  &EncryptedNonceOfIssuerLength))
+			printf("Error!B\n");
+
+ if   (!TSS_DAA_JOIN_issuer_credentia(PlatformEndorsementPubKey, PlatformEndorsementPubkeyLength, &issuer_k,
+    		&issuer_joins, &Credential, &EncyptedCred, &EncyptedCredLength))
+    	printf("Error!A \n");
+    //TODO add s, ch, F//TODO setup the A, B, C
+    cof = BN_new();
+    BN_set_word( cof, 4 );
+    EC_GROUP_set_generator( group, point, order, cof );
+
+    if ( EC_GROUP_check( group, Context ) )
+    	printf(" group set is ok now \n");
+
+
+
+    printf("here!\n");
+    if (!bi_test)
+    	printf("doit!\n");
+    printf("!%p!\n",bi_test);
+    bi_test = bi_new_ptr();
+    if (!bi_test)  printf("error!\n");
+    printf("!%p!\n",bi_test);
+    EC_POINT_copy(point2, point);
+
+    BN_set_word(&(point2->X), 23l);
+    BN_set_word(&(point2->Y), 35l);
+
+   // bi_res = EC_POINT_add_slope(group, point2, point2, bi_test);
+    if (!bi_res) printf("Error!\n");
+    printf("!%p!\n",bi_res);
+
+    BN_print_fp(stdout, bi_test);
+
+
+    printf("all over\n");
+    BN_free( &t );
+    BN_free( x );
+    BN_free( y );
+    BN_free( exp );
+    BN_free( m );
+    BN_free( order );
+    BN_free( cof );
+
+    COMP_free( a );
+    COMP_free( b );
+    COMP_free( r );
+
+	return 0;
+err:
+	BN_free( &t );
+	BN_free( x );
+	BN_free( y );
+	BN_free( exp );
+	BN_free( m );
+    BN_free( order );
+    BN_free( cof );
+
+	COMP_free( a );
+	COMP_free( b );
+	COMP_free( r );
+
+	return 0;
+}
