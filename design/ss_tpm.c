@@ -273,15 +273,15 @@ err:
 
 	return 0;
 }
-int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
-                                UINT32 EncryptedCredLength,
+
+int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
+                                UINT32   EncryptedCredLength,
                                 TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
                                 BYTE **  Credential,
                                 UINT32 * CredentialLength,
                                 BYTE **  CapitalE,
                                 UINT32 * CapitalELength)
 {
-	EC_GROUP *group = NULL;
 	EC_POINT *A, *B, *C, *E;
 	RSA      *rsa = NULL;
 	BYTE     *PlatformEndorsementPubKey = NULL;
@@ -329,14 +329,14 @@ int TSS_DAA_JOIN_tpm_credential(BYTE * EncryptedCred,
 	field_len = (EC_GROUP_get_degree(group) + 7) / 8;
 	*CredentialLength = 6 * field_len;
 
-	EC_POINT_hex2point( group, *Credential, A, Context);
-	EC_POINT_hex2point( group, ( *Credential + field_len ), B, Context);
-	EC_POINT_hex2point( group, ( *Credential + field_len * 2 ), C, Context);
+	EC_POINT_oct2point( group, *Credential, A, Context);
+	EC_POINT_oct2point( group, ( *Credential + field_len * 2), B, Context);
+	EC_POINT_oct2point( group, ( *Credential + field_len * 4 ), C, Context);
 
 	// 2. f*B -> E   :// ?
 	/* f * B */
 	EC_POINT_mul(group, E, NULL, B , TpmJoinSession->f, Context );	// mul the F
-	*CapitalE =  EC_POINT_point2hex( group, E, POINT_CONVERSION_UNCOMPRESSED, Context);
+	*CapitalE =  EC_POINT_point2oct( group, E, POINT_CONVERSION_UNCOMPRESSED, Context);
 	if ( !*CapitalE )
 		goto err;
 
@@ -384,19 +384,22 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
                           BYTE **  DPrime,
                           UINT32 * DPrimeLength)
 {
-	bi_ptr module = NULL , r_prime = NULL , v = NULL , mul = NULL;
+	bi_ptr order = NULL , r_prime = NULL , v = NULL , mul = NULL;
 	BYTE * buf = NULL , hash[DAA_HASH_SHA1_LENGTH +1];
 	UINT32 hash_len, buf_len;
+	EC_POINT *D_prime;
 	int field_len, ret, rv;
+
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
 
 	/* Get group module p */
-	module = bi_new_ptr();
-	if ( module == NULL )
+	order = bi_new_ptr();
+	if ( order == NULL )
 		return 0;
-	ret = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
-	if ( !ret )
+	/* order = group->order */
+	rv = EC_GROUP_get_order( group, order, Context );
+	if ( !rv )
 		goto err;
 
 	/* return either an EVP_MD structure or NULL if an error occurs. */
@@ -417,12 +420,9 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 		r_prime = bi_new_ptr();
 		if ( r_prime == NULL )
 			goto err;
-		// int     BN_rand(BIGNUM *rnd, int bits, int top,int bottom);
-		// int     BN_pseudo_rand(BIGNUM *rnd, int bits, int top,int bottom);
-		// int	BN_rand_range(BIGNUM *rnd, BIGNUM *range);
-		// int	BN_pseudo_rand_range(BIGNUM *rnd, BIGNUM *range);
+
 		bi_urandom( r_prime, EC_GROUP_get_degree(group) );
-		bi_mod( r_prime, r_prime, module);
+		bi_mod( r_prime, r_prime, order);
 	}
 	else
 	{
@@ -441,7 +441,7 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 		if ( hash_len != DAA_HASH_SHA1_LENGTH )
 			goto err;
 
-		r_prime = bi_set_as_nbin( &hash_len, hash );
+		r_prime = bi_set_as_nbin( hash_len, hash );
 		if ( !r_prime )
 			goto err;
 	}
@@ -451,7 +451,7 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 	if ( v == NULL )
 		goto err;
 	bi_urandom( v, EC_GROUP_get_degree(group) );
-	bi_mod( v, v, module);
+	bi_mod( v, v, order);
 
 	// 5. r'，D' -> HOST   :// ?
 	mul = bi_new_ptr();
@@ -460,31 +460,47 @@ int TSS_DAA_SIGN_tpm_init(TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
 
 	bi_mul( mul, v, r_prime );
 
-	*DPrime = bi_2_nbin( DPrimeLength, mul);
-	if ( *DPrimeLength <= 0 )
+	/* DPrime = mul * B */
+	D_prime = EC_POINT_new( group );
+	if ( D_prime == NULL )
 		goto err;
 
+	/* D' = mul * B */
+	ret = EC_POINT_mul(group, D_prime, NULL, TpmJoinSession->B, mul, Context);
+	if ( !ret ) goto err;
+
+	/* EC_POINT D' to bytes */
+	*DPrimeLength = sizeof( BYTE ) * EC_GROUP_get_degree(group) * 2;
+	*DPrime = ( BYTE * )malloc( *DPrimeLength + 1 );
+	if ( *RPrime == NULL )
+		goto err;
+
+	ret = EC_POINT_point2oct(group, D_prime, form, *DPrime, *DPrimeLength + 1,  Context);
+	if ( ret <= 0 )
+		goto err;
+
+	/* r_prime to bytes */
 	*RPrime = bi_2_nbin( RPrimeLength, r_prime );
 	if ( *RPrimeLength <= 0 )
 		goto err;
 
-	if ( TpmJoinSession == NULL )
-		TpmJoinSession->v = bi_new_ptr();
-
+	/* TpmJoinSession->v = v */
+	TpmJoinSession->v = bi_new_ptr();
 	if ( !bi_set( TpmJoinSession->v, v))
 		goto err;
 
-	bi_free_ptr( module );
+	bi_free_ptr( order );
 	bi_free_ptr( r_prime );
 	bi_free_ptr( v );
 	bi_free_ptr( mul );
+	EC_POINT_free ( D_prime );
 
 	EVP_MD_CTX_cleanup(&mdctx);
 
 	return 1;
 err:
-    if ( module )
-    	bi_free_ptr( module );
+    if ( order )
+    	bi_free_ptr( order );
 
     if ( r_prime )
     	bi_free_ptr( r_prime );
@@ -492,6 +508,8 @@ err:
 		bi_free_ptr( v );
 	if ( mul )
 		bi_free_ptr( mul );
+	if ( D_prime )
+		EC_POINT_free( D_prime );
 
 	EVP_MD_CTX_cleanup(&mdctx);
 
@@ -511,7 +529,7 @@ int TSS_DAA_SIGN_tpm_sign(
                           BYTE **  S,
 						  UINT32 * SLength)
 {
-	bi_ptr nt = NULL, c = NULL, mul = NULL, module = NULL;
+	bi_ptr nt = NULL, c = NULL, mul = NULL, order = NULL;
 	BYTE   hash[DAA_HASH_SHA1_LENGTH + 1];
 	UINT32 hash_len;
 	int    rv, i;
@@ -520,10 +538,13 @@ int TSS_DAA_SIGN_tpm_sign(
 	EVP_MD_CTX mdctx;
 
 	/* Get group module p */
-	module = bi_new_ptr();
-	if ( module == NULL )
+	order = bi_new_ptr();
+	if ( order == NULL )
 		return 0;
-	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+	/* order = group->order */
+	rv = EC_GROUP_get_order( group, order, Context );
+	if ( !rv )
+		goto err;
 
 	/* 1. {0，1}t -> nT   : */
 	nt = bi_new_ptr();
@@ -563,7 +584,7 @@ int TSS_DAA_SIGN_tpm_sign(
 	if ( hash_len != DAA_HASH_SHA1_LENGTH )
 		goto err;
 
-	ChLength = sizeof( BYTE ) * DAA_HASH_SHA1_LENGTH;
+	*ChLength = sizeof( BYTE ) * DAA_HASH_SHA1_LENGTH;
 	*Ch = ( BYTE * )malloc( ChLength );
 	if ( Ch = NULL )
 		goto err;
@@ -572,20 +593,20 @@ int TSS_DAA_SIGN_tpm_sign(
 		*( Ch + i) = hash[i];
 
 	// 3. v+c*f(mod q) -> s   ://bi_mul，bi_add，bi_mod
-	c = bi_set_as_nbin( ChLength, *Ch);
+	c = bi_set_as_nbin( *ChLength, *Ch);
 	mul = bi_new_ptr();
 	if ( mul == NULL || c == NULL )
 		goto err;
 
 	bi_mul( mul, c, TpmJoinSession->f);
 	bi_add( mul, mul, TpmJoinSession->v );
-	bi_mod( mul, mul, module);
+	bi_mod( mul, mul, order);
 
 	*S = bi_2_nbin( SLength, mul );
 	if ( *SLength <= 0 )
 		goto err;
 
-	bi_free_ptr( module );
+	bi_free_ptr( order );
 	bi_free_ptr( nt );
 	bi_free_ptr( c );
 	bi_free_ptr( mul );
@@ -595,8 +616,8 @@ int TSS_DAA_SIGN_tpm_sign(
 	return 1;
 
 err:
-	if( module )
-		bi_free_ptr( module );
+	if( order )
+		bi_free_ptr( order );
 	if ( nt )
 		bi_free_ptr( nt );
 	if ( c )
