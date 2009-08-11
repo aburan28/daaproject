@@ -176,7 +176,7 @@ void dump_bi_array( char *field, const bi_array_ptr array);
 
 bi_ptr compute_random_number( bi_ptr result, const bi_ptr element);
 
-#if 0
+#if 1
 /***********************************************************************************
 	SAVE / LOAD
 *************************************************************************************/

@@ -184,7 +184,13 @@ int TSS_DAA_JOIN_issuer_init(
 	/* change ni to nbin_ni */
 	nbin_ni = bi_2_nbin(&nbin_ni_len, ni);
 	if (!nbin_ni) goto err;
-
+#ifdef DEBUG
+	int ii;
+	for (ii=0;ii<nbin_ni_len;ii++)
+	{
+		printf("%02x",nbin_ni[ii]);
+	}
+#endif
 	rsa = RSA_new();
 	if (!rsa) goto err;
 	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
@@ -228,17 +234,21 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 
 	point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
 	EC_POINT *Ctemp = NULL,*point1 = NULL, *point2 = NULL, *UPrime = NULL;
-	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL;
+	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL, c = NULL;
 	RSA      *rsa = NULL;
-	int      i , ret , oct_len , e_size = 3 , buffer_len = 1024;
-	unsigned char exp[] = { 0x01, 0x00, 0x01 }, *buffer = NULL, *encrypted_oct = NULL;
+	int      i , ret , oct_len, buffer_len = 1024, str_len, rv;
+	unsigned char  *buffer = NULL, *encrypted_oct = NULL;
+	BYTE	str[DAA_HASH_SHA1_LENGTH], *buf = NULL;
 
 	if (!group) return 0;
 
 	rsa = RSA_new();		if (!rsa) return 0;
 
-	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
-	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);
+	rsa->e = bi_new_ptr();
+	rsa->n = bi_new_ptr();
+	rsa_bi_load(rsa->n, rsa->e, NULL);
+//	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
+//	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);
 	if ( ( rsa->e == NULL ) || ( rsa->n == NULL ) )
 		goto err;
 
@@ -275,6 +285,120 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 
 	//TODO	check rogue list
 
+	/*----------------------------------------here built str <- 1|X|Y|ni ------------------------------------------*/
+
+	EVP_MD *digest = NULL;
+	EVP_MD_CTX mdctx;
+	BYTE	esxp[] = { 0x01 };
+	int		buf_len, es_size = 1;
+
+								//TODO fix the err;
+	OpenSSL_add_all_digests();
+	EVP_MD_CTX_init( &mdctx );
+	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
+	if ( !digest )
+		goto err;
+	/* Return either an EVP_MD structure or NULL if an error occurs. */
+	rv = EVP_DigestInit_ex( &mdctx , digest , NULL );			//  initialization the ||
+	if (!rv)
+		goto err;
+
+	/* 1: 1||X||Y||nI -> str */
+	rv = EVP_DigestUpdate(&mdctx,  esxp , es_size );			//  1
+	if (!rv)
+		goto err;
+
+	buf = bi_2_nbin ( &buf_len, &(IssuerKey->IssuerPK.CapitalX->X) );  /* IssuerKey is a point and IssuerPK's CapitalX is is a point  */
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len ); 	//  x.x
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+	buf = bi_2_nbin ( &buf_len, &(IssuerKey->IssuerPK.CapitalX->Y) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//  x.y
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+	buf = bi_2_nbin ( &buf_len, &(IssuerKey->IssuerPK.CapitalY->X) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//  y.x
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+	buf = bi_2_nbin ( &buf_len, &(IssuerKey->IssuerPK.CapitalY->Y) );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//  y.y
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+	buf = bi_2_nbin ( &buf_len, IssuerJoinSession->IssuerNone );
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//	nI
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+	rv = EVP_DigestFinal_ex(&mdctx, str, &str_len );
+	if (!rv)
+		goto err;
+#ifdef DEBUG
+	int ii;
+
+	printf(" str in %s: %d \n", __FILE__, __LINE__ );
+	for (ii=0;ii<str_len;ii++)
+		printf("%02x",str[ii]);
+	printf("\n");
+#endif
+	/*---------------*/
+
+	rv = EVP_DigestUpdate(&mdctx,  str , str_len );	//	str
+	if (!rv)
+		goto err;
+
+	buf = bi_2_nbin ( &buf_len, &(IssuerJoinSession->CapitalF->X) ); //	f.x
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+	buf = bi_2_nbin ( &buf_len, &(IssuerJoinSession->CapitalF->Y) ); //	f.y
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+
+
+	buf = bi_2_nbin ( &buf_len, &(UPrime->X) ); //	u.x
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+	buf = bi_2_nbin ( &buf_len, &(UPrime->Y) ); //	u.y
+	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );
+	OPENSSL_free( buf );
+	if (!rv)
+		goto err;
+
+	rv = EVP_DigestFinal_ex(&mdctx, str, &str_len );
+		if (!rv)
+			goto err;
+
+	c = bi_set_as_nbin( str_len, str );
+	if (bi_cmp(c, IssuerJoinSession->ch)) printf("c != ch \n");
+	else
+		 printf("c = ch \n");
+#ifdef DEBUG
+
+
+	printf(" c in %s: %d \n", __FILE__, __LINE__ );
+	for (ii=0;ii<str_len;ii++)
+		printf("%02x",str[ii]);
+	printf("\n");
+#endif
+	/*----------------------------------------end------------------------------------------*/
+
 	//	Zq -> r ->mod -> finish
 	r = bi_new_ptr();
 	if (!r) goto err;
@@ -286,9 +410,10 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	/*  r mod order */
 	do
 	{
-	bi_urandom( r, NONCE_LENGTH );
-	bi_res = bi_mod(r , r, order );
-	if ( !bi_res ) goto err;
+		bi_urandom( r, NONCE_LENGTH );
+		bi_res = bi_mod(r , r, order );
+		if ( !bi_res ) goto err;
+
 	}while (BN_is_zero(r));
 	/*	r *P1 -> A   y*A -> B */
 
