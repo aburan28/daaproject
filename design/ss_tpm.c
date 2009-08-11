@@ -15,7 +15,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
                                     TSS_DAA_ISSUER_JOIN_SESSION * IssuerJoinSession
                                     ) //TODO change to BYTE *
 {
-	bi_ptr   u = NULL , f = NULL , c = NULL ,s = NULL , module = NULL, temp = NULL;
+	bi_ptr   u = NULL , f = NULL , c = NULL ,s = NULL , order = NULL, temp = NULL;
 	EC_POINT *U = NULL, *F = NULL;
 	RSA      *rsa = NULL;
 
@@ -28,10 +28,11 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	EVP_MD_CTX mdctx;
 
 	/* Get group module p */
-	module = bi_new_ptr();
-	if ( module == NULL )
+	order = bi_new_ptr();
+	if ( order == NULL )
 		return 0;
-	rv = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context ); //return 1 if success
+	/* order = group->order */
+	rv = EC_GROUP_get_order( group, order, Context );
 	if ( !rv )
 		goto err;
 
@@ -39,9 +40,11 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	u  = bi_new_ptr();
 	if ( u == NULL )
 		goto err;
+	/* u = radom % order */
 	bi_urandom( u, NONCE_LENGTH );
-	bi_mod( u, u, module );
+	bi_mod( u, u, order );
 
+	/* init Digest */
 	OpenSSL_add_all_digests();
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
@@ -102,7 +105,6 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if ( buf_len <= 0 )
 	{
 		OPENSSL_free( buf );
-
 		goto err;
 	}
 
@@ -135,7 +137,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if (!rv)
 		goto err;
 
-	f = bi_set_as_nbin( &hash_len, hash );
+	f = bi_set_as_nbin( hash_len, hash );
 	if ( f == NULL )
 		goto err;
 
@@ -199,36 +201,42 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if ( s == NULL )
 		goto err;
 
+	/* temp = c *f */
 	bi_mul( temp, c, f );
+	/* s = u + temp */
 	bi_add( s, u, temp );
-	bi_mod( s, s, module );
+	bi_mod( s, s, order );
 
 	/* 6:  (F，c，s) -> comm. */
+	IssuerJoinSession->CapitalF = EC_POINT_new();
+	if ( IssuerJoinSession->CapitalF == NULL )
+		goto err;
 	rv = EC_POINT_copy( IssuerJoinSession->CapitalF, F);
 	if ( !rv )
 		goto err;
 
+	IssuerJoinSession->ch = bi_new_ptr();
 	if ( IssuerJoinSession->ch == NULL )
-	{
-		IssuerJoinSession->ch = bi_new_ptr();
-		if ( IssuerJoinSession->ch == NULL )
-			goto err;
-	}
+		goto err;
+
 	bi_set( IssuerJoinSession->ch ,c );
 
-
+	IssuerJoinSession->s = bi_new_ptr();
 	if ( IssuerJoinSession->s == NULL )
 	{
-		IssuerJoinSession->s = bi_new_ptr();
-		if ( IssuerJoinSession->s == NULL )
-		{
-			bi_free_ptr( IssuerJoinSession->ch );
-			goto err;
-		}
+		bi_free_ptr( IssuerJoinSession->ch );
+		goto err;
 	}
+
 	bi_set( IssuerJoinSession->s, s);
 
-	bi_free_ptr( module );
+	TpmJoinSession->f = bi_new_ptr();
+	if ( TpmJoinSession->f == NULL )
+		goto err;
+
+	bi_set( TpmJoinSession->f , f );
+
+	bi_free_ptr( order );
 	bi_free_ptr( u );
 	bi_free_ptr( f );
 	bi_free_ptr( c );
@@ -243,8 +251,8 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	return 1;
 
 err:
-	if ( module )
-		bi_free_ptr( module );
+	if ( order )
+		bi_free_ptr( order );
 	if ( u )
 		bi_free_ptr( u );
 	if ( f )
