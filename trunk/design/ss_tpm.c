@@ -8,6 +8,53 @@
 #include "ss_tpm.h"
 #include <string.h>
 
+/* rsa_bi_load usage:
+ *   ------------- put key int which (rsa_n, rsa_n, rsa_d) not NULL one
+ *	 ------------- example rsa_bi_load(rsa->n, NULL, NULL) it put rsa-n key into rsa->n
+ * 	 is not full code
+ *	 and return 0 mean error
+ *	 README: rsa_new didn't new rsa->n and so on , we need do rsa->n = bi_new_ptr();
+ * */
+int rsa_bi_load(bi_ptr rsa_n, bi_ptr rsa_e, bi_ptr rsa_d)
+{
+	bi_ptr n = NULL, e = NULL, d = NULL;
+	FILE *fp;
+	fp = fopen("key","r+");
+	if (!fp) return 0;
+		/*_we have to malloc the space_*/
+	if (!rsa_n) n = bi_new_ptr();
+	if (!rsa_e) e = bi_new_ptr();
+	if (!rsa_d) d = bi_new_ptr();
+
+	if (rsa_n)
+		bi_load( rsa_n, fp);
+	else
+		bi_load( n, fp);
+
+	if (rsa_e)
+		bi_load( rsa_e, fp);
+	else
+		bi_load( e, fp);
+
+	if (rsa_d)
+		bi_load( rsa_d, fp);
+	else
+		bi_load( d, fp);
+
+	fclose(fp);
+
+	if (n) bi_free_ptr( n );
+	if (e) bi_free_ptr( e );
+	if (d) bi_free_ptr( d );
+
+	return 1;
+err:
+	if (n) bi_free_ptr( n );
+	if (e) bi_free_ptr( e );
+	if (d) bi_free_ptr( d );
+	return 0;
+}
+
 int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
                                     UINT32 EncryptedNonceOfIssuerLength,
                                     TSS_DAA_TPM_JOIN_SESSION * TpmJoinSession,
@@ -22,7 +69,8 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	BYTE     *buf = NULL , str[DAA_HASH_SHA1_LENGTH] , hash[DAA_HASH_SHA1_LENGTH];
 	BYTE     exp[] = { 0x01 };
 	UINT32   DaaSeed;
-	int      buf_len,str_len, hash_len, rv, e_size = 1;
+	int      buf_len, rv, e_size = 1;
+	unsigned int hash_len, str_len;
 
 	EVP_MD *digest = NULL;
 	EVP_MD_CTX mdctx;
@@ -88,11 +136,28 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	rsa = RSA_new();
 	if ( rsa == NULL )
 		goto err;
-	// TODO secret key of Ek and Publick key of EK
-#if 0
-	rsa->n = bi_set_as_nbin(  PlatformEndorsementPubkeyLength, PlatformEndorsementPubKey );
-	rsa->d = bi_set_as_nbin( PlatformEndorsementSkeyLength, PlatformEndorsementSKey );
-#endif
+	/*  secret key of Ek and Publick key of EK*/
+	/*  here try to read from file key  */
+//	FILE *fp;
+//	fp = fopen("key","r+");
+//	if (!fp) goto err;
+//	/*_we have to malloc the space_*/
+//	rsa->n = bi_new_ptr();
+//	rsa->e = bi_new_ptr();
+//	rsa->d = bi_new_ptr();
+//
+//	bi_load( rsa->n, fp); if (!rsa->n) goto err;
+//	bi_load( rsa->e, fp); if (!rsa->e) goto err;
+//	bi_load( rsa->d, fp); if (!rsa->d) goto err;
+//
+//	fclose(fp);
+	rsa->n = bi_new_ptr();
+	rsa->e = bi_new_ptr();
+	rsa->d = bi_new_ptr();
+	rv = rsa_bi_load(rsa->n, rsa->e, rsa->d);
+	if (!rv)
+		goto err;
+	/*-- end --*/
     if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 
@@ -100,13 +165,19 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
     if ( buf == NULL )
     	goto err;
 
-	buf_len = RSA_private_decrypt(EncryptedNonceOfIssuerLength, EncryptedNonceOfIssuer,
-									buf, rsa, RSA_NO_PADDING);
+	buf_len = RSA_private_decrypt(EncryptedNonceOfIssuerLength, EncryptedNonceOfIssuer,buf, rsa, RSA_PKCS1_PADDING);
 	if ( buf_len <= 0 )
 	{
 		OPENSSL_free( buf );
 		goto err;
 	}
+#ifdef DEBUG
+	int ii;
+	for (ii=0;ii<buf_len;ii++)
+	{
+		printf("%02x",buf[ii]);
+	}
+#endif
 
 	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//	nI
 	OPENSSL_free( buf );
@@ -116,6 +187,14 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	rv = EVP_DigestFinal_ex(&mdctx, str, &str_len );
 	if (!rv)
 		goto err;
+#ifdef DEBUG
+
+
+	printf(" str in %s: %d \n", __FILE__, __LINE__ );
+	for (ii=0;ii<str_len;ii++)
+		printf("%02x",str[ii]);
+	printf("\n");
+#endif
 
 	/* 2:  H1(0||DaaSeed||Kk) -> f */
 	exp[0] =  0x00 ;
@@ -191,6 +270,15 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	if ( c == NULL )
 		goto err;
 
+#ifdef DEBUG
+
+
+	printf(" hash(C) in %s: %d\n", __FILE__, __LINE__ );
+	for (ii=0;ii<hash_len;ii++)
+		printf("%02x",hash[ii]);
+	printf("\n");
+#endif
+
 	/* 5: u+c*f (mod q) -> s */
 
 	temp = bi_new_ptr();
@@ -208,7 +296,7 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	bi_mod( s, s, order );
 
 	/* 6:  (F，c，s) -> comm. */
-	IssuerJoinSession->CapitalF = EC_POINT_new();
+	IssuerJoinSession->CapitalF = EC_POINT_new(group);
 	if ( IssuerJoinSession->CapitalF == NULL )
 		goto err;
 	rv = EC_POINT_copy( IssuerJoinSession->CapitalF, F);

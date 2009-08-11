@@ -81,7 +81,7 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int pre
 
     	if ( !EC_POINT_add_slope( group, A, B, lam ) )
     		goto out;
-#if DEBUG
+#ifdef DEBUG
 	    printf("\n slope: ");
 	    BN_print_fp(stdout, lam );
 #endif
