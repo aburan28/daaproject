@@ -26,7 +26,7 @@ int TSS_DAA_JOIN_issuer_setup(
                               TSS_DAA_ISSUER_PROOF * IssuerProof)
 {
 	bi_ptr x = NULL , y = NULL , order = NULL , bi_res = NULL;
-	EC_POINT *P1 = NULL , *P2 = NULL , *point = NULL, /*test*/*gen;
+	EC_POINT *P1 = NULL , *P2 = NULL , *point = NULL;
 	int ret;
 
 	if ( !(IssuerKey->IssuerPK.CapitalX) ||
@@ -64,7 +64,6 @@ int TSS_DAA_JOIN_issuer_setup(
 	bi_set( IssuerKey->IssuerSK.y, y);
 
 	/*TODO [set  P2]  need get the G from group to P1  and bulit a P2 */
-	gen = EC_GROUP_get0_generator(group);
 	ret = EC_POINT_copy( P1 , EC_GROUP_get0_generator(group));
 	if (!ret) goto err;
 
@@ -188,8 +187,8 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 {
 
 	point_conversion_form_t form = POINT_CONVERSION_UNCOMPRESSED;
-	EC_POINT *Ctemp = NULL ,*point1 = NULL , *point2 = NULL ,  *UPrime = NULL;;
-	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL ;
+	EC_POINT *Ctemp = NULL ,*point1 = NULL , *point2 = NULL ,  *UPrime = NULL, *point3 = NULL;
+	bi_ptr   r = NULL , xy = NULL ,  order = NULL , bi_res = NULL, cofactor = NULL;
 	RSA      *rsa = NULL;
 	int      i , ret , oct_len , e_size = 3 , buffer_len = 1024;
 	unsigned char exp[] = { 0x01, 0x00, 0x01 }, *buffer = NULL, *encrypted_oct = NULL;
@@ -205,6 +204,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 
 	xy	  = bi_new_ptr();	if (!xy)    goto err;
 	order = bi_new_ptr();	if (!order) goto err;
+	cofactor = bi_new_ptr(); if (!cofactor) goto err;
 
 	point1 = EC_POINT_new(group);
 	if (!point1) goto err;
@@ -239,21 +239,37 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	//	Zq -> r ->mod -> finish
 	r = bi_new_ptr();
 	if (!r) goto err;
-	bi_urandom( r, NONCE_LENGTH );
 
 	/*  GET group->order = order */
 	EC_GROUP_get_order(group , order , Context);
 	if (!order) goto err;
+	EC_GROUP_get_cofactor(group, cofactor, Context);
+	if (!cofactor) goto err;
 
+	bi_div(order, order, cofactor);
 	/*  r mod order */
+	do
+	{
+	bi_urandom( r, NONCE_LENGTH );
 	bi_res = bi_mod(r , r, order );
 	if ( !bi_res ) goto err;
-
+	}while (BN_is_zero(r));
 	/*	r *P1 -> A   y*A -> B */
 
 	/* 1 mul the r*P1 = point1 - > A */
+//	BN_set_word(r, 10l); // 0
 	ret = EC_POINT_mul(group, point1 , NULL, IssuerKey->IssuerPK.Eccparmeter.CapitalP1 , r , Context);
+//	/*test*/
+
+//	ret = EC_POINT_mul(group, point3 , r, NULL , NULL , Context);
+//  /*test end*/
+
 	if ( !ret ) goto err;
+
+	/*test*/
+//	bi_ptr xx = bi_new_ptr(), yy = bi_new_ptr();
+//	EC_POINT_get_affine_coordinates_GFp(group, point3, xx, yy, Context);
+	/*test end*/
 
 	ret = EC_POINT_copy( Credential->CapitalA , point1 );
 	if ( !ret ) goto err;
@@ -303,16 +319,16 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	/* malloc end*/
 
 	/*1  cre.A -> buffer */
-	oct_len = EC_POINT_point2oct(group, Credential->CapitalA, form, buffer, buffer_len,  Context);
+	oct_len = ec_GFp_simple_point2oct(group, Credential->CapitalA, form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*1  buffer -> encrypted_oct*/
-	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
+	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_PKCS1_PADDING);
 		if (ret == -1)
 			goto err;
 	/*1  encrypted_oct - > EncyptedCred*/
 	for (i=0;i<RSA_MODULE_LENGTH/8;i++)
 		{
-			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/8 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/8 - 1) ];
+			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/8 )  ) (*EncyptedCred)[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/8 ) ];
 			else
 				*EncyptedCred[i] = 0;
 		}
@@ -321,13 +337,13 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	oct_len = EC_POINT_point2oct(group, Credential->CapitalB, form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*2  buffer -> encrypted_oct*/
-	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
+	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_PKCS1_PADDING);
 		if (ret == -1)
 			goto err;
 	/*2  encrypted_oct - > EncyptedCred*/
 	for (i=RSA_MODULE_LENGTH/8;i<RSA_MODULE_LENGTH/4;i++)
 		{
-			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/4 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/4 - 1) ];
+			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/4 )  ) (*EncyptedCred)[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/4 ) ];
 			else
 				*EncyptedCred[i] = 0;
 		}
@@ -335,13 +351,13 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	oct_len = EC_POINT_point2oct(group, Credential->CapitalC, form, buffer, buffer_len,  Context);
 	if ( !oct_len ) goto err;
 	/*3  buffer -> encrypted_oct*/
-	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_NO_PADDING);
+	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_PKCS1_PADDING);
 		if (ret == -1)
 			goto err;
 	/*3  encrypted_oct - > EncyptedCred*/
-	for (i=RSA_MODULE_LENGTH/8;i<RSA_MODULE_LENGTH/8*3;i++)
+	for (i=RSA_MODULE_LENGTH/4;i<RSA_MODULE_LENGTH/8*3;i++)
 		{
-			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/8*3 - 1)  ) *EncyptedCred[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/8*3 - 1) ];
+			if ( ( i+ret ) >= (RSA_MODULE_LENGTH/8*3 )  ) (*EncyptedCred)[i] = encrypted_oct[ ( i+ret ) - (RSA_MODULE_LENGTH/8*3 ) ];
 			else
 				*EncyptedCred[i] = 0;
 		}
