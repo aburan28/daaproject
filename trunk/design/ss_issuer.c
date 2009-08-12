@@ -284,6 +284,19 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	ret = EC_POINT_add(group, UPrime, point1, point2 , Context);
 	if ( !ret ) goto err;
 
+	/*--- we find the error on the U.z so change to affine world ---*/
+	{
+	bi_ptr tempx = NULL, tempy = NULL;
+	tempx = bi_new_ptr();
+	tempy = bi_new_ptr();
+	EC_POINT_get_affine_coordinates_GFp(group, UPrime, tempx, tempy, Context);
+	EC_POINT_set_affine_coordinates_GFp(group, UPrime, tempx, tempy, Context);
+
+	bi_free_ptr( tempx );
+	bi_free_ptr( tempy );
+	}
+	/*--end--*/
+
 	//TODO	check rogue list
 
 	/*----------------------------------------here built str <- 1|X|Y|ni ------------------------------------------*/
