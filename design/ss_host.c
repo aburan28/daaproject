@@ -20,7 +20,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
                                        TSS_DAA_HOST_JOIN_SESSION * HostJoinSession) // out
 {
 	EC_POINT *point = NULL;
-	COMPLEX  *complex = NULL, *complex2 = NULL;
+	COMPLEX  *complex1 = NULL, *complex2 = NULL;
 	bi_ptr   order = NULL;
 	UINT32   field_len, len;
 	int      ret, precomp;
@@ -37,7 +37,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	field_len = (EC_GROUP_get_degree(group) + 7) / 8;
 	if ( field_len <= 0 )
 		goto err;
-	len = 2 * field_len;
+	len = 3 * field_len;
 
 	// TODO if DEBUG the DaaCredential->CapitalA
 	point = EC_POINT_new( group );
@@ -53,11 +53,11 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	if (!EC_POINT_copy( DaaCredential->CapitalA, point ))
 		goto err;
 
-	ret = EC_POINT_oct2point( group, point, (CredentialBytes + len ) , len * 2, Context);
+	ret = EC_POINT_oct2point( group, point, (CredentialBytes + field_len * 4 ) , len , Context);
 	if (!EC_POINT_copy( DaaCredential->CapitalB, point ))
 		goto err;
 
-	ret = EC_POINT_oct2point( group, point, ( CredentialBytes + len * 2 ), len * 2, Context);
+	ret = EC_POINT_oct2point( group, point, ( CredentialBytes + field_len * 8 ), len , Context);
 	if (!EC_POINT_copy( DaaCredential->CapitalC, point ))
 		goto err;
 
@@ -70,38 +70,38 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 		goto err;
 
 	precomp = 0;
-	complex = COMP_new();
+	complex1 = COMP_new();
 
-	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalX, order, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalX, order, precomp, store, complex1);
 	if ( !ret )
 		goto err;
 
-	ret = COMP_copy( HostJoinSession->Roa, complex );
+	ret = COMP_copy( HostJoinSession->Roa, complex1 );
 	if ( !ret )
 		goto err;
 
 	// 2. t(B，X) -> ρb   :// ?
-	ret = Tate( DaaCredential->CapitalB, IssuerPK->CapitalX, order, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalB, IssuerPK->CapitalX, order, precomp, store, complex1);
 	if ( !ret )
 		goto err;
 
-	ret = COMP_copy( HostJoinSession->Rob, complex );
+	ret = COMP_copy( HostJoinSession->Rob, complex1 );
 	if ( !ret )
 		goto err;
 
 	// 3. t(C，P2) -> ρc   :// ?
 	if ( IssuerPK->Eccparmeter.CapitalP2 == NULL )
 		goto err;
-	ret = Tate( DaaCredential->CapitalC, IssuerPK->Eccparmeter.CapitalP2, order, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalC, IssuerPK->Eccparmeter.CapitalP2, order, precomp, store, complex1);
 	if ( !ret )
 		goto err;
 
-	ret = COMP_copy( HostJoinSession->Roc, complex );
+	ret = COMP_copy( HostJoinSession->Roc, complex1 );
 	if ( !ret )
 		goto err;
 
 	// 4. check t(A，Y) == t(B，P2) || t(A+E，X) ==ρc   :// ?
-	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalY, order, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalY, order, precomp, store, complex1);
 	if ( !ret )
 		goto err;
 
@@ -111,7 +111,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	if ( !ret )
 		goto err;
 
-	if ( COMP_cmp( complex, complex2 ) )
+	if ( COMP_cmp( complex1, complex2 ) )
 	{
 		printf(" t(A, Y) != t(B, P2) \n ");
 		goto err;
@@ -125,11 +125,11 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	if ( !ret )
 		goto err;
 
-	ret = Tate( point, IssuerPK->CapitalX, order, precomp, store, complex);
+	ret = Tate( point, IssuerPK->CapitalX, order, precomp, store, complex1);
 	if ( !ret )
 		goto err;
 
-	if ( COMP_cmp( HostJoinSession->Roc, complex) )
+	if ( COMP_cmp( HostJoinSession->Roc, complex1) )
 	{
 		printf(" t(A + E, X) = Roc \n ");
 		goto err;
@@ -137,7 +137,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 
 	bi_free_ptr( order );
 	EC_POINT_free( point );
-	COMP_free( complex );
+	COMP_free( complex1 );
 	COMP_free( complex2 );
 
 	return 1;
@@ -149,8 +149,8 @@ err:
 	if ( point )
 		EC_POINT_free( point );
 
-	if ( complex )
-		COMP_free( complex );
+	if ( complex1 )
+		COMP_free( complex1 );
 
 	if (complex2 )
 		COMP_free( complex2 );
