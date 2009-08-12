@@ -248,7 +248,8 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 
 	rsa->e = bi_new_ptr();
 	rsa->n = bi_new_ptr();
-	rsa_bi_load(rsa->n, rsa->e, NULL);
+	rsa->d = bi_new_ptr();
+	rsa_bi_load(rsa->n, rsa->e, rsa->d);
 //	rsa->e = BN_bin2bn( exp , e_size , rsa->e);
 //	rsa->n = BN_bin2bn( PlatformEndorsementPubKey , PlatformEndorsementPubkeyLength , rsa->n);
 	if ( ( rsa->e == NULL ) || ( rsa->n == NULL ) )
@@ -357,8 +358,10 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	if (!rv)
 		goto err;
 #ifdef DEBUG
+#ifndef II
+#define II
 	int ii;
-
+#endif
 	printf(" str in %s: %d \n", __FILE__, __LINE__ );
 	for (ii=0;ii<str_len;ii++)
 		printf("%02x",str[ii]);
@@ -405,7 +408,10 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	else
 		 printf("c = ch \n");
 #ifdef DEBUG
-
+#ifndef II
+#define II
+	int ii;
+#endif
 
 	printf(" c in %s: %d \n", __FILE__, __LINE__ );
 	for (ii=0;ii<str_len;ii++)
@@ -501,6 +507,31 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_PKCS1_PADDING);
 		if (ret == -1)
 			goto err;
+
+#ifdef DEBUG
+#ifndef II
+#define II
+	int ii;
+#endif
+	printf("A.oct:");
+	for (ii=0;ii<oct_len;ii++)
+	printf("%02x",buffer[ii]);
+	printf("\n");
+
+	printf("enced.A:");
+	for (ii=0;ii<ret;ii++)
+	printf("%02x",encrypted_oct[ii]);
+	printf("\n");
+
+	int rets;
+	rets = RSA_private_decrypt(256, encrypted_oct,
+													buffer , rsa, RSA_PKCS1_PADDING);
+	for (ii=0;ii<rets;ii++)
+		printf("%02x",buffer[ii]);
+		printf("\n");
+
+#endif
+
 	/*1  encrypted_oct - > EncyptedCred*/
 	for (i=0;i<RSA_MODULE_LENGTH/8;i++)
 		{
@@ -516,6 +547,18 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_PKCS1_PADDING);
 		if (ret == -1)
 			goto err;
+
+#ifdef DEBUG
+#ifndef II
+#define II
+	int ii;
+#endif
+	printf("enced.B:");
+	for (ii=0;ii<ret;ii++)
+	printf("%02x",encrypted_oct[ii]);
+	printf("\n");
+#endif
+
 	/*2  encrypted_oct - > EncyptedCred*/
 	for (i=RSA_MODULE_LENGTH/8;i<RSA_MODULE_LENGTH/4;i++)
 		{
@@ -530,6 +573,18 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	ret = RSA_public_encrypt( oct_len, buffer , encrypted_oct , rsa , RSA_PKCS1_PADDING);
 		if (ret == -1)
 			goto err;
+
+#ifdef DEBUG
+#ifndef II
+#define II
+	int ii;
+#endif
+	printf("enced.C:");
+	for (ii=0;ii<ret;ii++)
+	printf("%02x",encrypted_oct[ii]);
+	printf("\n");
+#endif
+
 	/*3  encrypted_oct - > EncyptedCred*/
 	for (i=RSA_MODULE_LENGTH/4;i<RSA_MODULE_LENGTH/8*3;i++)
 		{
