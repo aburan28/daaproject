@@ -20,47 +20,59 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
                                        TSS_DAA_HOST_JOIN_SESSION * HostJoinSession) // out
 {
 	EC_POINT *point = NULL;
-	COMPLEX *complex = NULL, *complex2 = NULL;
-	bi_ptr module = NULL;
-	BIGNUM store[500];
-	UINT32 field_len, len;
-	int ret, precomp;
+	COMPLEX  *complex = NULL, *complex2 = NULL;
+	bi_ptr   order = NULL;
+	UINT32   field_len, len;
+	int      ret, precomp;
 
-	/* Get group module p */
-	module = bi_new_ptr();
-	if ( module == NULL )
+	/* Get group base point order */
+	order = bi_new_ptr();
+	if ( order == NULL )
 		return 0;
-	ret = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+	/* order = group->order */
+	ret = EC_GROUP_get_order( group, order, Context );
 	if ( !ret )
 		goto err;
 
 	field_len = (EC_GROUP_get_degree(group) + 7) / 8;
 	if ( field_len <= 0 )
 		goto err;
-	len = 2 * field_len + 1;
+	len = 2 * field_len;
 
+	// TODO if DEBUG the DaaCredential->CapitalA
 	point = EC_POINT_new( group );
+	if ( point == NULL )
+		goto err;
+	DaaCredential->CapitalA = EC_POINT_new( group );
+	DaaCredential->CapitalB = EC_POINT_new( group );
+	DaaCredential->CapitalC = EC_POINT_new( group );
+	if( DaaCredential->CapitalA == NULL || DaaCredential->CapitalB == NULL || DaaCredential->CapitalC == NULL )
+		goto err;
+
 	ret = EC_POINT_oct2point( group, point, CredentialBytes, len, Context);
 	if (!EC_POINT_copy( DaaCredential->CapitalA, point ))
 		goto err;
 
-	ret = EC_POINT_oct2point( group, point, (CredentialBytes + len) , len, Context);
+	ret = EC_POINT_oct2point( group, point, (CredentialBytes + len ) , len * 2, Context);
 	if (!EC_POINT_copy( DaaCredential->CapitalB, point ))
 		goto err;
 
-	ret = EC_POINT_oct2point( group, point, ( CredentialBytes + len * 2 ), len, Context);
+	ret = EC_POINT_oct2point( group, point, ( CredentialBytes + len * 2 ), len * 2, Context);
 	if (!EC_POINT_copy( DaaCredential->CapitalC, point ))
 		goto err;
 
 	// 1. t(A，X) ->ρa   :// ?Tate(Ppub,Qid,q,precomp,store,gid);
 
+	HostJoinSession->Roa = COMP_new();
+	HostJoinSession->Rob = COMP_new();
+	HostJoinSession->Roc = COMP_new();
 	if ( HostJoinSession->Roa == NULL || HostJoinSession->Rob == NULL || HostJoinSession->Roc == NULL)
 		goto err;
 
 	precomp = 0;
 	complex = COMP_new();
 
-	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalX, module, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalX, order, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
@@ -69,7 +81,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 		goto err;
 
 	// 2. t(B，X) -> ρb   :// ?
-	ret = Tate( DaaCredential->CapitalB, IssuerPK->CapitalX, module, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalB, IssuerPK->CapitalX, order, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
@@ -80,7 +92,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	// 3. t(C，P2) -> ρc   :// ?
 	if ( IssuerPK->Eccparmeter.CapitalP2 == NULL )
 		goto err;
-	ret = Tate( DaaCredential->CapitalC, IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalC, IssuerPK->Eccparmeter.CapitalP2, order, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
@@ -89,13 +101,13 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 		goto err;
 
 	// 4. check t(A，Y) == t(B，P2) || t(A+E，X) ==ρc   :// ?
-	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalY, module, precomp, store, complex);
+	ret = Tate( DaaCredential->CapitalA, IssuerPK->CapitalY, order, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
 	complex2 = COMP_new();
 
-	ret = Tate( DaaCredential->CapitalB, IssuerPK->Eccparmeter.CapitalP2, module, precomp, store, complex2);
+	ret = Tate( DaaCredential->CapitalB, IssuerPK->Eccparmeter.CapitalP2, order, precomp, store, complex2);
 	if ( !ret )
 		goto err;
 
@@ -113,7 +125,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 	if ( !ret )
 		goto err;
 
-	ret = Tate( point, IssuerPK->CapitalX, module, precomp, store, complex);
+	ret = Tate( point, IssuerPK->CapitalX, order, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
@@ -123,7 +135,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 		goto err;
 	}
 
-	bi_free_ptr( module );
+	bi_free_ptr( order );
 	EC_POINT_free( point );
 	COMP_free( complex );
 	COMP_free( complex2 );
@@ -132,7 +144,7 @@ int TSS_DAA_JOIN_host_credential_store(BYTE * CapitalE,                         
 
 err:
 
-	bi_free_ptr( module );
+	bi_free_ptr( order );
 
 	if ( point )
 		EC_POINT_free( point );
@@ -158,7 +170,7 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
                            TSS_DAA_SIGNNATURE *   DaaSignature          // out
                            )
 {
-	bi_ptr   module = NULL, nv = NULL, rprime = NULL;
+	bi_ptr   module = NULL, nv = NULL, rprime = NULL, order = NULL;
 	EC_POINT *point = NULL;
 	COMPLEX  comp, *complex = &comp, Roaprime, Robprime, Rocprime;
 	BYTE     hash[DAA_HASH_SHA1_LENGTH];
@@ -171,6 +183,15 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 	if ( module == NULL )
 		return 0;
 	ret = ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
+	if ( !ret )
+		goto err;
+
+	/* Get group order */
+	order = bi_new_ptr();
+	if ( order == NULL )
+		return 0;
+	/* order = group->order */
+	ret = EC_GROUP_get_order( group, order, Context );
 	if ( !ret )
 		goto err;
 
@@ -278,7 +299,7 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 	if ( !ret )
 		goto err;
 
-	ret = Tate( point, IssuerPK->CapitalX, module, precomp, store, complex);
+	ret = Tate( point, IssuerPK->CapitalX, order, precomp, store, complex);
 	if ( !ret )
 		goto err;
 
@@ -303,6 +324,7 @@ int TSS_DAA_SIGN_host_sign(BYTE * RPrime,                               // in
 	bi_free_ptr( module );
 	bi_free_ptr( nv );
 	bi_free_ptr( rprime );
+	bi_free_ptr( order );
 
 	EC_POINT_free( point );
 
@@ -321,6 +343,8 @@ err:
 		bi_free_ptr( nv );
 	if (rprime )
 		bi_free_ptr( rprime );
+	if ( order )
+		bi_free_ptr( order );
 
 	if ( point )
 		EC_POINT_free( point );
