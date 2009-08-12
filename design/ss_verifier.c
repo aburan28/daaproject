@@ -250,7 +250,6 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 	ECC_POINT *SB = NULL , *CE = NULL , *DT = NULL;
 	BYTE  hash[DAA_HASH_SHA1_LENGTH] , final_hash[DAA_HASH_SHA1_LENGTH] , * buf = NULL;
 	UINT32 hashlen , final_hashlen ,  buf_len;
-	BIGNUM store[500];
 	int ret, i, precomp = 0;
 
 	EVP_MD * digest = NULL;
@@ -271,11 +270,6 @@ int TSS_DAA_JOIN_verifier_verify(TSS_DAA_SIGNNATURE *   DaaSignature,
 
 	/* Get group module p */
 	ec_GFp_simple_group_get_curve( group, module, NULL, NULL, Context );
-
-	for (i = 0; i < 500; i++)
-	{
-		BN_init(&store[i]);
-	}
 
 	ret = Tate( DaaSignature->CapitalAPrime , IssuerPK->CapitalY , module , precomp , store , res1);
 	if (!ret) goto err;

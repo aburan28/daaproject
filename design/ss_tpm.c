@@ -9,7 +9,7 @@
 #include <string.h>
 
 /* rsa_bi_load usage:
- *   ------------- put key int which (rsa_n, rsa_n, rsa_d) not NULL one
+ *   ------------- put key int which (rsa_n, rsa_e, rsa_d) not NULL one
  *	 ------------- example rsa_bi_load(rsa->n, NULL, NULL) it put rsa-n key into rsa->n
  * 	 is not full code
  *	 and return 0 mean error
@@ -91,7 +91,9 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 	/* u = radom % order */
 	bi_urandom( u, NONCE_LENGTH );
 	bi_mod( u, u, order );
-
+#ifdef DEBUG
+	BN_set_word(u, 5l);
+#endif
 	/* init Digest */
 	OpenSSL_add_all_digests();
 	EVP_MD_CTX_init( &mdctx );
@@ -229,6 +231,20 @@ int TSS_DAA_JOIN_credential_request(BYTE * EncryptedNonceOfIssuer,
 		goto err;
 
 	EC_POINT_mul(group, U, NULL, IssuerPK->Eccparmeter.CapitalP1 , u, Context);
+
+	/*--- we find the error on the U.z so change to affine world ---*/
+	{
+	bi_ptr tempx = NULL, tempy = NULL;
+	tempx = bi_new_ptr();
+	tempy = bi_new_ptr();
+	EC_POINT_get_affine_coordinates_GFp(group, U, tempx, tempy, Context);
+	EC_POINT_set_affine_coordinates_GFp(group, U, tempx, tempy, Context);
+
+	bi_free_ptr( tempx );
+	bi_free_ptr( tempy );
+	}
+	/*--end--*/
+
 	/* f mul P1 and assign to  F */
 	EC_POINT_mul(group, F, NULL, IssuerPK->Eccparmeter.CapitalP1 , f, Context);
 
@@ -398,10 +414,9 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
 
 	/* 1. Eek-1 (ε) -> cre   : */
 	// TODO secret key of Ek
-	rsa->n = bi_set_as_nbin(  PlatformEndorsementPubkeyLength, PlatformEndorsementPubKey );
-#if 0
-	rsa->d = bi_set_as_nbin( PlatformEndorsementSkeyLength, PlatformEndorsementSKey );
-#endif
+	rsa->n = bi_new_ptr();
+	rsa->d = bi_new_ptr();
+	rsa_bi_load(rsa->n, NULL, rsa->d);
     if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 
@@ -410,7 +425,7 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
     	goto err;
 
 	ret = RSA_private_decrypt(EncryptedCredLength, EncryptedCred,
-									*Credential, rsa, RSA_NO_PADDING);
+									*Credential, rsa, RSA_PKCS1_PADDING);
 	if ( !ret )
 		goto err;
 
