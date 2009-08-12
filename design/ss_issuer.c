@@ -154,6 +154,7 @@ err:
 
 	return 0;
 }
+
 int TSS_DAA_JOIN_issuer_init(
 							BYTE * 					  	  PlatformEndorsementPubKey,
                             UINT32 					  	  PlatformEndorsementPubkeyLength,

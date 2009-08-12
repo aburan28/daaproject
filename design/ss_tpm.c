@@ -386,10 +386,10 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
                                 BYTE **  CapitalE,
                                 UINT32 * CapitalELength)
 {
-	EC_POINT *A, *B, *C, *E;
+	EC_POINT *A = NULL, *B = NULL, *C = NULL, *E = NULL;
 	RSA      *rsa = NULL;
 	BYTE     *PlatformEndorsementPubKey = NULL;
-	UINT32   field_len, PlatformEndorsementPubkeyLength;
+	UINT32   field_len, PlatformEndorsementPubkeyLength, len;
 	int      ret;
 
 	if ( EncryptedCred == NULL || EncryptedCredLength == 0 )
@@ -420,16 +420,31 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
     if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 
-    *Credential = ( BYTE * )malloc( sizeof(BYTE) * (RSA_MODULE_LENGTH / 8) );
+    len = sizeof(BYTE) * (RSA_MODULE_LENGTH / 8);
+    if ( 3 * len != EncryptedCredLength )
+    	goto err;
+
+	field_len = (EC_GROUP_get_degree(group) + 7) / 8;
+
+    *Credential = ( BYTE * )malloc( field * 6 + 1 );
     if ( *Credential == NULL )
     	goto err;
 
-	ret = RSA_private_decrypt(EncryptedCredLength, EncryptedCred,
-									*Credential, rsa, RSA_PKCS1_PADDING);
+	ret = RSA_private_decrypt(len, EncryptedCred,
+									*Credential , rsa, RSA_NO_PADDING);
+		goto err;
+
+	ret = RSA_private_decrypt(len, EncryptedCred + len,
+									*Credential + 2 * field_len, rsa, RSA_NO_PADDING);
 	if ( !ret )
 		goto err;
 
-	field_len = (EC_GROUP_get_degree(group) + 7) / 8;
+	ret = RSA_private_decrypt(len, EncryptedCred + 2 * len,
+									*Credential + 4 * field_len, rsa, RSA_NO_PADDING);
+	if ( !ret )
+		goto err;
+
+
 	*CredentialLength = 6 * field_len;
 
 	EC_POINT_oct2point( group, A, *Credential, field_len * 2, Context);
