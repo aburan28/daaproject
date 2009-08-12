@@ -553,6 +553,12 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 #define II
 	int ii;
 #endif
+
+	printf("B.oct:");
+	for (ii=0;ii<oct_len;ii++)
+	printf("%02x",buffer[ii]);
+	printf("\n");
+
 	printf("enced.B:");
 	for (ii=0;ii<ret;ii++)
 	printf("%02x",encrypted_oct[ii]);
@@ -579,6 +585,12 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 #define II
 	int ii;
 #endif
+
+	printf("C.oct:");
+	for (ii=0;ii<oct_len;ii++)
+	printf("%02x",buffer[ii]);
+	printf("\n");
+
 	printf("enced.C:");
 	for (ii=0;ii<ret;ii++)
 	printf("%02x",encrypted_oct[ii]);

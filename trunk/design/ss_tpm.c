@@ -388,7 +388,7 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
 {
 	EC_POINT *A = NULL, *B = NULL, *C = NULL, *E = NULL;
 	RSA      *rsa = NULL;
-	BYTE     *PlatformEndorsementPubKey = NULL;
+	BYTE     *PlatformEndorsementPubKey = NULL, *buffer;
 	UINT32   field_len, PlatformEndorsementPubkeyLength, len;
 	int      ret;
 
@@ -417,8 +417,8 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
 #define II
 	int ii;
 #endif
-	printf("enced.");
-	for (ii=0;ii<256;ii++)
+	printf("enced.1:");
+	for (ii=0;ii<EncryptedCredLength;ii++)
 	printf("%02x",EncryptedCred[ii]);
 	printf("\n");
 #endif
@@ -433,6 +433,7 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
     	goto err;
 
     len = sizeof(BYTE) * (RSA_MODULE_LENGTH / 8);
+    buffer = (BYTE * )malloc( EncryptedCredLength * sizeof(BYTE)+1);
     if ( 3 * len != EncryptedCredLength )
     	goto err;
 
@@ -442,17 +443,36 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
     if ( *Credential == NULL )
     	goto err;
 
-	ret = RSA_private_decrypt(len, EncryptedCred,
+    buffer =   memcpy(buffer, EncryptedCred, EncryptedCredLength);
+    if (!buffer) goto err; //TODO fix the err;
+
+	ret = RSA_private_decrypt(len, buffer,
 									*Credential , rsa, RSA_PKCS1_PADDING);
 	if (ret == -1)
 		goto err;
+#ifdef DEBUG
+#ifndef II
+#define II
+	int ii;
+#endif
+	printf("enced.2:");
+	for (ii=0;ii<EncryptedCredLength;ii++)
+	printf("%02x",EncryptedCred[ii]);
+	printf("\n");
+#endif
 
-	ret = RSA_private_decrypt(len, EncryptedCred + len,
+//    buffer =(BYTE *) memcpy(buffer, EncryptedCred+len, len);
+//    if (!buffer) goto err; //TODO fix the err;
+
+	ret = RSA_private_decrypt(len, buffer + len,
 									*Credential + 4 * field_len, rsa, RSA_PKCS1_PADDING);
 	if (ret == -1)
 		goto err;
 
-	ret = RSA_private_decrypt(len, EncryptedCred + 2 * len,
+   // buffer =(BYTE *) memcpy(buffer, EncryptedCred+ 2 * len, len);
+   // if (!buffer) goto err; //TODO fix the err;
+
+	ret = RSA_private_decrypt(len, buffer + 2 * len,
 									*Credential + 8 * field_len, rsa, RSA_PKCS1_PADDING);
 	if (ret == -1)
 		goto err;
@@ -470,22 +490,20 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
 
 	*CredentialLength = 6 * field_len;
 
-	EC_POINT_oct2point( group, A, *Credential, field_len * 2, Context);
-	EC_POINT_oct2point( group, B, ( *Credential + field_len * 2), field_len * 2, Context);
-	EC_POINT_oct2point( group, C, ( *Credential + field_len * 4 ), field_len * 2, Context);
+	EC_POINT_oct2point( group, A, *Credential, field_len * 3, Context);
+	EC_POINT_oct2point( group, B, ( *Credential + field_len * 4), field_len * 3, Context);
+	EC_POINT_oct2point( group, C, ( *Credential + field_len * 8 ), field_len * 3, Context);
 
 	// 2. f*B -> E   :// ?
 	/* f * B */
-	*CapitalELength = sizeof( BYTE ) * field_len ;
-	*CapitalE = ( BYTE * )malloc(sizeof( BYTE ) * field_len );
+	*CapitalELength = sizeof( BYTE ) * field_len * 3 ;
+	*CapitalE = ( BYTE * )malloc( CapitalELength +1 );
 
 	EC_POINT_mul(group, E, NULL, B , TpmJoinSession->f, Context );	// mul the F
 
 	EC_POINT_point2oct( group, E, POINT_CONVERSION_UNCOMPRESSED, *CapitalE, *CapitalELength, Context);
 	if ( !*CapitalE )
 		goto err;
-
-	*CapitalELength = strlen( *CapitalE );
 
 	/* TpmJoinSession->B = B */
 	TpmJoinSession->B = EC_POINT_new( group );
