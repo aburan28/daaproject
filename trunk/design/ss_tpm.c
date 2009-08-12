@@ -412,11 +412,23 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
 	if ( rsa == NULL )
 		goto err;
 
+#ifdef DEBUG
+#ifndef II
+#define II
+	int ii;
+#endif
+	printf("enced.");
+	for (ii=0;ii<256;ii++)
+	printf("%02x",EncryptedCred[ii]);
+	printf("\n");
+#endif
+
 	/* 1. Eek-1 (ε) -> cre   : */
 	// TODO secret key of Ek
 	rsa->n = bi_new_ptr();
+	rsa->e = bi_new_ptr();
 	rsa->d = bi_new_ptr();
-	rsa_bi_load(rsa->n, NULL, rsa->d);
+	rsa_bi_load(rsa->n, rsa->e, rsa->d);
     if ( ( rsa->d == NULL ) || ( rsa->n == NULL ) )
     	goto err;
 
@@ -426,24 +438,35 @@ int TSS_DAA_JOIN_tpm_credential(BYTE *   EncryptedCred,
 
 	field_len = (EC_GROUP_get_degree(group) + 7) / 8;
 
-    *Credential = ( BYTE * )malloc( field * 6 + 1 );
+    *Credential = ( BYTE * )malloc( field_len * 12 + 1 );
     if ( *Credential == NULL )
     	goto err;
 
 	ret = RSA_private_decrypt(len, EncryptedCred,
-									*Credential , rsa, RSA_NO_PADDING);
+									*Credential , rsa, RSA_PKCS1_PADDING);
+	if (ret == -1)
 		goto err;
 
 	ret = RSA_private_decrypt(len, EncryptedCred + len,
-									*Credential + 2 * field_len, rsa, RSA_NO_PADDING);
-	if ( !ret )
+									*Credential + 4 * field_len, rsa, RSA_PKCS1_PADDING);
+	if (ret == -1)
 		goto err;
 
 	ret = RSA_private_decrypt(len, EncryptedCred + 2 * len,
-									*Credential + 4 * field_len, rsa, RSA_NO_PADDING);
-	if ( !ret )
+									*Credential + 8 * field_len, rsa, RSA_PKCS1_PADDING);
+	if (ret == -1)
 		goto err;
 
+#ifdef DEBUG
+#ifndef II
+#define II
+	int ii;
+#endif
+	printf("Credentia A,B,C:");
+	for (ii=0;ii<field_len * 6;ii++)
+	printf("%02x",Credential[ii]);
+	printf("\n");
+#endif
 
 	*CredentialLength = 6 * field_len;
 
