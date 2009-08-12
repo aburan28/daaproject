@@ -25,6 +25,7 @@ extern "C" {
 #define HASH_LEN 20
 
 BIGNUM *module;
+
 //
 // Tate Pairing Code
 //
@@ -53,7 +54,7 @@ void extract(EC_POINT *A, BIGNUM *x, BIGNUM *y)
 // On subsequent passes these values ( total < 500 ) are "played back"
 //
 
-void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int precomp, BIGNUM store[], int *ptr)
+void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int precomp, BIGNUM *store[], int *ptr)
 {
     BIGNUM  *lam, *x, *y, *m, *nx;
     COMPLEX *u, *tmp;
@@ -91,21 +92,21 @@ void g(EC_POINT *A, EC_POINT *B,  BIGNUM *Qx, COMPLEX *Qy, COMPLEX *num, int pre
     		goto out;
 
     	/*store values in store[i]  */
-    	if ( !BN_copy( &store[*(ptr++)], x ) )
+    	if ( !BN_copy( store[(*ptr)++], x ) )
     		goto out;
-    	if ( !BN_copy( &store[*(ptr++)], y ) )
+    	if ( !BN_copy( store[(*ptr)++ ], y ) )
     		goto out;
-    	if ( !BN_copy( &store[*(ptr++)], lam ) )
+    	if ( !BN_copy( store[(*ptr)++], lam ) )
     		goto out;
 
     }
     else
     {
-    	if ( !BN_copy(x, &store[*(ptr++)]) )
+    	if ( !BN_copy(x, store[(*ptr)++]) )
     		goto out;
-    	if ( !BN_copy(y, &store[*(ptr++)]) )
+    	if ( !BN_copy(y, store[(*ptr)++]) )
     		goto out;
-    	if ( !BN_copy(lam, &store[*(ptr++)]) )
+    	if ( !BN_copy(lam, store[(*ptr)++]) )
     		goto out;
     }
 
@@ -176,7 +177,7 @@ out:
 // precomputed ZZn's (about 500 of them).
 //
 
-int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, int precomp,BIGNUM *store, COMPLEX *res)
+int  fast_tate_pairing(EC_POINT *P,BIGNUM *Qx, COMPLEX *Qy, BIGNUM  *q, int precomp,BIGNUM *store[], COMPLEX *res)
 {
 
 	int      i, *ptr = NULL, ret, index = 0;
@@ -314,7 +315,7 @@ err:
 // ecap(.) function
 //
 
-int  Tate(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store, COMPLEX *res)
+int  Tate(EC_POINT *P, EC_POINT *Q, BIGNUM *order, int precomp, BIGNUM *store[], COMPLEX *res)
 {
     BIGNUM  Qx;
     COMPLEX Qy;
@@ -468,7 +469,6 @@ BIGNUM H1(char *string)
 
     BN_mod( &h, &h, module , Context);
 
-    bi_free_ptr( module );
 	EVP_MD_CTX_cleanup(&mdctx);
 
     return h;
@@ -476,6 +476,7 @@ BIGNUM H1(char *string)
 err:
     if( module )
         bi_free_ptr( module );
+    module = NULL;
 
     EVP_MD_CTX_cleanup(&mdctx);
 
@@ -642,12 +643,13 @@ EC_POINT *map_to_point(char *ID)
 		goto err;
     }
 
-    BN_free( module );
+
     return Q;
 
     err:
     if ( module )
     	BN_free( module );
+    module = NULL;
     return 0;
 }
 

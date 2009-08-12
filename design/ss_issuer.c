@@ -167,7 +167,8 @@ int TSS_DAA_JOIN_issuer_init(
 	bi_ptr ni = NULL;
 	BYTE  *nbin_ni = NULL , *eni_st = NULL;
 
-	if ( !(IssuerJoinSession->IssuerNone) )  return 0;
+	IssuerJoinSession->IssuerNonce = bi_new_ptr();
+	if ( !(IssuerJoinSession->IssuerNonce) )  return 0;
 
 	/* 1.	{0,1}t -> nI */
 	ni = bi_new_ptr();
@@ -175,7 +176,7 @@ int TSS_DAA_JOIN_issuer_init(
 		return 0;
 
 	bi_urandom(ni , NONCE_LENGTH );
-	bi_set( IssuerJoinSession->IssuerNone, ni);
+	bi_set( IssuerJoinSession->IssuerNonce, ni);
 
 	/* built the final commreq */
 	eni_st = OPENSSL_malloc(( RSA_MODULE_LENGTH / 8 + 1) );
@@ -292,7 +293,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	BYTE	esxp[] = { 0x01 };
 	int		buf_len, es_size = 1;
 
-								//TODO fix the err;
+	//TODO fix the err;
 	OpenSSL_add_all_digests();
 	EVP_MD_CTX_init( &mdctx );
 	digest = EVP_get_digestbyname( DAA_PARAM_MESSAGE_DIGEST_ALGORITHM );
@@ -332,7 +333,7 @@ int TSS_DAA_JOIN_issuer_credentia(BYTE *				PlatformEndorsementPubKey,
 	if (!rv)
 		goto err;
 
-	buf = bi_2_nbin ( &buf_len, IssuerJoinSession->IssuerNone );
+	buf = bi_2_nbin ( &buf_len, IssuerJoinSession->IssuerNonce );
 	rv = EVP_DigestUpdate(&mdctx,  buf , buf_len );	//	nI
 	OPENSSL_free( buf );
 	if (!rv)

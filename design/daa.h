@@ -55,6 +55,7 @@ typedef EC_POINT ECC_POINT;
 
 /* declare the gloable ECC group */
 EC_GROUP *group;
+BIGNUM   *store[30];
 
 typedef struct tdECCParmeter
 {
@@ -121,7 +122,7 @@ typedef struct tdIssuerProof
 
 typedef struct tdIssuerJionSession
 {
-    bi_ptr  IssuerNone;
+    bi_ptr  IssuerNonce;
 
     ECC_POINT  *CapitalF;
 
